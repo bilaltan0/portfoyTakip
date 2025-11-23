@@ -4,10 +4,10 @@ import { Button } from 'react-native';
 import { useState } from 'react';
 
 export default function App() {
-  const [name, setName] = useState('Bilal ALTAN');
+  const [name, setName] = useState('Bilal ALTAN2');
 
   const handleSwitch = () => {
-    setName((prev) => (prev === 'Bilal ALTAN' ? 'Şeyma ALTAN' : 'Bilal ALTAN'));
+    setName((prev) => (prev === 'Bilal ALTAN2' ? 'Şeyma ALTAN1' : 'Bilal ALTAN2'));
   };
 
   return (
