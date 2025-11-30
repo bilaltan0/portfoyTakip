@@ -47,8 +47,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { COLORS, MOCK_ASSETS } from '../constants/theme';
+import { SettingsIcon, NotificationIcon } from '../components/icons';
 
 export default function DashboardScreen() {
+  // Varlık dağılımı verileri (yüzdeler) - Farklı ve canlı renkler
+  const portfolioDistribution = [
+    { name: 'Altın', percentage: 45, color: '#FFD700' },      // Altın sarısı
+    { name: 'Kripto', percentage: 30, color: '#6366F1' },     // İndigo (mor-mavi)
+    { name: 'Borsa', percentage: 15, color: '#10B981' },      // Yeşil
+    { name: 'Döviz', percentage: 5, color: '#F59E0B' },       // Turuncu
+    { name: 'Nakit/Diğer', percentage: 5, color: '#EC4899' }, // Pembe
+  ];
+
+  // SVG Circle için hesaplama
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius; // 251.327
+  
+  // Her segment için offset hesaplama (doğru formül)
+  let cumulativeOffset = 0;
+  const segments = portfolioDistribution.map((item) => {
+    const segmentLength = (item.percentage / 100) * circumference;
+    const currentOffset = cumulativeOffset;
+    cumulativeOffset += segmentLength;
+    
+    return {
+      ...item,
+      segmentLength,
+      offset: currentOffset,
+    };
+  });
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar />
@@ -58,26 +86,14 @@ export default function DashboardScreen() {
           style={styles.headerIcon}
           onPress={() => Alert.alert('Ayarlar', 'Ayarlar ekranı yakında eklenecek')}
         >
-          {/* Settings Icon */}
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Circle cx={12} cy={12} r={2} fill={COLORS.darkBlue} />
-            <Circle cx={12} cy={12} r={8} stroke={COLORS.darkBlue} strokeWidth={2} fill="none" />
-            <Circle cx={12} cy={5} r={1.5} fill={COLORS.darkBlue} />
-            <Circle cx={12} cy={19} r={1.5} fill={COLORS.darkBlue} />
-            <Circle cx={5} cy={12} r={1.5} fill={COLORS.darkBlue} />
-            <Circle cx={19} cy={12} r={1.5} fill={COLORS.darkBlue} />
-          </Svg>
+          <SettingsIcon size={24} color={COLORS.darkBlue} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>PortföyMate</Text>
         <TouchableOpacity 
           style={styles.headerIcon}
           onPress={() => Alert.alert('Bildirimler', 'Bildirimler ekranı yakında eklenecek')}
         >
-          {/* Notifications Icon (Bell) */}
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Circle cx={12} cy={20} r={1.5} fill={COLORS.darkBlue} />
-            <Path d="M8 8 C8 5.8 9.8 4 12 4 C14.2 4 16 5.8 16 8 L16 14 C16 15.1 16.9 16 18 16 L6 16 C7.1 16 8 15.1 8 14 Z" fill={COLORS.darkBlue} />
-          </Svg>
+          <NotificationIcon size={24} color={COLORS.darkBlue} showBadge={false} />
         </TouchableOpacity>
       </View>
 
@@ -95,16 +111,20 @@ export default function DashboardScreen() {
         <View style={styles.chartContainer}>
           <View style={styles.chartBox}>
             <Svg width={180} height={180} viewBox="0 0 100 100">
-              {/* Altın */}
-              <Circle r={40} cx={50} cy={50} stroke={COLORS.gold} strokeWidth={16} fill="none" strokeDasharray="100 157" strokeDashoffset="0" />
-              {/* Kripto */}
-              <Circle r={40} cx={50} cy={50} stroke={COLORS.darkBlue} strokeWidth={16} fill="none" strokeDasharray="47 210" strokeDashoffset="100" />
-              {/* Borsa */}
-              <Circle r={40} cx={50} cy={50} stroke={COLORS.blue1} strokeWidth={16} fill="none" strokeDasharray="32 225" strokeDashoffset="147" />
-              {/* Döviz */}
-              <Circle r={40} cx={50} cy={50} stroke={COLORS.blue2} strokeWidth={16} fill="none" strokeDasharray="20 237" strokeDashoffset="179" />
-              {/* Nakit/Diğer */}
-              <Circle r={40} cx={50} cy={50} stroke={COLORS.blue3} strokeWidth={16} fill="none" strokeDasharray="10 247" strokeDashoffset="199" />
+              {segments.map((segment, index) => (
+                <Circle
+                  key={segment.name}
+                  r={radius}
+                  cx={50}
+                  cy={50}
+                  stroke={segment.color}
+                  strokeWidth={20}
+                  fill="none"
+                  strokeDasharray={`${segment.segmentLength} ${circumference - segment.segmentLength}`}
+                  strokeDashoffset={-segment.offset + circumference / 4}
+                  strokeLinecap="butt"
+                />
+              ))}
             </Svg>
             <View style={styles.chartCenter}>
               <Text style={{ fontSize: 14, color: COLORS.darkGray }}>Değer</Text>
@@ -113,31 +133,13 @@ export default function DashboardScreen() {
           </View>
           
           <View style={styles.chartLegendRight}>
-            <View style={styles.legendItemRow}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.gold }]} />
-              <Text style={styles.legendText}>Altın</Text>
-              <Text style={styles.legendPercent}>45%</Text>
-            </View>
-            <View style={styles.legendItemRow}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.darkBlue }]} />
-              <Text style={styles.legendText}>Kripto</Text>
-              <Text style={styles.legendPercent}>30%</Text>
-            </View>
-            <View style={styles.legendItemRow}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.blue1 }]} />
-              <Text style={styles.legendText}>Borsa</Text>
-              <Text style={styles.legendPercent}>15%</Text>
-            </View>
-            <View style={styles.legendItemRow}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.blue2 }]} />
-              <Text style={styles.legendText}>Döviz</Text>
-              <Text style={styles.legendPercent}>5%</Text>
-            </View>
-            <View style={styles.legendItemRow}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.blue3 }]} />
-              <Text style={styles.legendText}>Nakit/Diğer</Text>
-              <Text style={styles.legendPercent}>5%</Text>
-            </View>
+            {portfolioDistribution.map((item) => (
+              <View key={item.name} style={styles.legendItemRow}>
+                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                <Text style={styles.legendText}>{item.name}</Text>
+                <Text style={styles.legendPercent}>{item.percentage}%</Text>
+              </View>
+            ))}
           </View>
         </View>
 

@@ -24,12 +24,14 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Svg, { Circle, Path } from 'react-native-svg';
 
 // Screens
 import DashboardScreen from './screens/DashboardScreen';
 import TransactionScreen from './screens/TransactionScreen';
 import MoreScreen from './screens/MoreScreen';
+
+// Icons
+import { HomeIcon, TransactionIcon, MoreIcon } from './components/icons';
 
 // Constants
 import { COLORS } from './constants/theme';
@@ -58,36 +60,21 @@ export default function App() {
           name="Ana Sayfa" 
           component={DashboardScreen}
           options={{
-            tabBarIcon: ({ color }) => (
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Path d="M3 9 L12 2 L21 9 L21 20 C21 20.5 20.5 21 20 21 L4 21 C3.5 21 3 20.5 3 20 Z" fill={color} />
-              </Svg>
-            ),
+            tabBarIcon: ({ color }) => <HomeIcon size={28} color={color} />,
           }}
         />
         <Tab.Screen 
           name="İşlem Yap" 
           component={TransactionScreen}
           options={{
-            tabBarIcon: ({ color }) => (
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={2} fill="none" />
-                <Path d="M12 8 L12 16 M8 12 L16 12" stroke={color} strokeWidth={2} />
-              </Svg>
-            ),
+            tabBarIcon: ({ color }) => <TransactionIcon size={28} color={color} />,
           }}
         />
         <Tab.Screen 
           name="Daha Fazla" 
           component={MoreScreen}
           options={{
-            tabBarIcon: ({ color }) => (
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Circle cx={12} cy={6} r={2} fill={color} />
-                <Circle cx={12} cy={12} r={2} fill={color} />
-                <Circle cx={12} cy={18} r={2} fill={color} />
-              </Svg>
-            ),
+            tabBarIcon: ({ color }) => <MoreIcon size={28} color={color} />,
           }}
         />
       </Tab.Navigator>
