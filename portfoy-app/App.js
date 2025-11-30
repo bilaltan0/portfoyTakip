@@ -25,6 +25,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Context Provider
 import { PortfolioProvider } from './context/PortfolioContext';
@@ -46,6 +47,8 @@ const Stack = createStackNavigator();
 
 // Tab Navigator Component
 function TabNavigator() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -53,7 +56,9 @@ function TabNavigator() {
         tabBarActiveTintColor: COLORS.gold,
         tabBarInactiveTintColor: COLORS.white,
         tabBarStyle: {
-          height: 64,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 8,
           backgroundColor: COLORS.darkBlue,
           borderTopWidth: 1,
           borderTopColor: '#eee',
@@ -87,14 +92,16 @@ function TabNavigator() {
 
 export default function App() {
   return (
-    <PortfolioProvider>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Main" component={TabNavigator} />
-          <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </PortfolioProvider>
+    <SafeAreaProvider>
+      <PortfolioProvider>
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </PortfolioProvider>
+    </SafeAreaProvider>
   );
 }
 
