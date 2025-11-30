@@ -19,3 +19,9 @@ export { default as NotificationIcon } from './NotificationIcon';
 export { default as HomeIcon } from './HomeIcon';
 export { default as TransactionIcon } from './TransactionIcon';
 export { default as MoreIcon } from './MoreIcon';
+
+// Asset Icons
+export { default as GoldIcon } from './GoldIcon';
+export { default as BitcoinIcon } from './BitcoinIcon';
+export { default as StockIcon } from './StockIcon';
+export { default as CurrencyIcon } from './CurrencyIcon';

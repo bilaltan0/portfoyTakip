@@ -47,7 +47,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { COLORS, MOCK_ASSETS } from '../constants/theme';
-import { SettingsIcon, NotificationIcon } from '../components/icons';
+import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon } from '../components/icons';
 
 export default function DashboardScreen() {
   // Varlık dağılımı verileri (yüzdeler) - Farklı ve canlı renkler
@@ -151,18 +151,10 @@ export default function DashboardScreen() {
           {MOCK_ASSETS.map((asset, idx) => (
             <View key={asset.name} style={styles.card}> 
               <View style={[styles.cardIcon, { backgroundColor: asset.color }]}>
-                {asset.name === 'Altın' && (
-                  <Svg width={24} height={24} viewBox="0 0 24 24"><Circle cx={12} cy={12} r={8} fill="#fff" /></Svg>
-                )}
-                {asset.name === 'Kripto' && (
-                  <Svg width={24} height={24} viewBox="0 0 24 24"><Rect x={6} y={6} width={12} height={12} rx={2} fill="#fff" /></Svg>
-                )}
-                {asset.name === 'Borsa' && (
-                  <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M6 18 L10 12 L14 15 L18 8" stroke="#fff" strokeWidth={2} fill="none" /></Svg>
-                )}
-                {asset.name === 'Döviz' && (
-                  <Svg width={24} height={24} viewBox="0 0 24 24"><Rect x={6} y={8} width={12} height={8} rx={2} fill="#fff" /></Svg>
-                )}
+                {asset.name === 'Altın' && <GoldIcon size={24} color="#fff" />}
+                {asset.name === 'Kripto' && <BitcoinIcon size={24} color="#fff" />}
+                {asset.name === 'Borsa' && <StockIcon size={24} color="#fff" />}
+                {asset.name === 'Döviz' && <CurrencyIcon size={24} color="#fff" />}
               </View>
               <Text style={styles.cardTitle}>{asset.name}</Text>
               <Text style={styles.cardValue}>{asset.value}</Text>
