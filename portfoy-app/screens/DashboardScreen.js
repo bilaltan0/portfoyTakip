@@ -41,39 +41,125 @@
  * İleride ayrı ekranlar olacak (Stack Navigator ile).
  */
 
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { COLORS, MOCK_ASSETS } from '../constants/theme';
-import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon } from '../components/icons';
+import { COLORS, MOCK_ASSETS, CURRENCY_SYMBOLS, EXCHANGE_RATES } from '../constants/theme';
+import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, ChevronDownIcon } from '../components/icons';
+import { usePortfolio } from '../context/PortfolioContext';
+import PortfolioSelector from '../components/PortfolioSelector';
 
 export default function DashboardScreen() {
-  // Varlık dağılımı verileri (yüzdeler) - Farklı ve canlı renkler
-  const portfolioDistribution = [
-    { name: 'Altın', percentage: 45, color: '#FFD700' },      // Altın sarısı
-    { name: 'Kripto', percentage: 30, color: '#6366F1' },     // İndigo (mor-mavi)
-    { name: 'Borsa', percentage: 15, color: '#10B981' },      // Yeşil
-    { name: 'Döviz', percentage: 5, color: '#F59E0B' },       // Turuncu
-    { name: 'Nakit/Diğer', percentage: 5, color: '#EC4899' }, // Pembe
-  ];
-
-  // SVG Circle için hesaplama
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius; // 251.327
+  // Context'ten verileri çek
+  const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
   
-  // Her segment için offset hesaplama (doğru formül)
-  let cumulativeOffset = 0;
-  const segments = portfolioDistribution.map((item) => {
-    const segmentLength = (item.percentage / 100) * circumference;
-    const currentOffset = cumulativeOffset;
-    cumulativeOffset += segmentLength;
+  // Para birimi seçici modal state
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  
+  // Debug: Konsola yazdır
+  console.log('📊 Dashboard - Transactions:', transactions.length);
+  console.log('💰 Dashboard - Total Value:', totalValue);
+  console.log('🔢 Total Portfolio Value:', totalPortfolioValue);
+  console.log('📈 Raw Distribution:', rawDistribution);
+  console.log('📈 Portfolio Distribution:', portfolioDistribution);
+
+  // Debug: Verileri temizle
+  const handleClearData = () => {
+    Alert.alert(
+      '⚠️ Verileri Temizle',
+      'Tüm işlemler silinecek. Emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Temizle', 
+          style: 'destructive',
+          onPress: () => {
+            clearAllData();
+            Alert.alert('✅', 'Veriler temizlendi! Yeni işlem ekleyebilirsiniz.');
+          }
+        }
+      ]
+    );
+  };
+
+  // Para birimi dönüştürme fonksiyonu
+  const convertCurrency = (amountInTRY) => {
+    const rate = EXCHANGE_RATES[displayCurrency] || 1;
+    return amountInTRY / rate;
+  };
+
+  // Para birimi sembolü
+  const currencySymbol = CURRENCY_SYMBOLS[displayCurrency] || '₺';
+
+  // Toplam portföy değerini hesapla - overall'ı KULLAN (zaten hesaplanmış)
+  const totalPortfolioValueInTRY = totalValue.overall || 0;
+  const totalPortfolioValue = convertCurrency(totalPortfolioValueInTRY);
+
+  // Varlık dağılımı verilerini Context'ten hesapla - GERÇEK yüzde ile
+  const rawDistribution = [
+    { 
+      name: 'Altın', 
+      value: convertCurrency(totalValue['Altın'] || 0),
+      color: '#FFD700' 
+    },
+    { 
+      name: 'Kripto', 
+      value: convertCurrency(totalValue['Kripto'] || 0),
+      color: '#6366F1' 
+    },
+    { 
+      name: 'Borsa', 
+      value: convertCurrency(totalValue['Borsa'] || 0),
+      color: '#10B981' 
+    },
+    { 
+      name: 'Döviz', 
+      value: convertCurrency(totalValue['Döviz'] || 0),
+      color: '#F59E0B' 
+    },
+  ].filter(item => item.value > 0);
+
+  // Yüzdeleri hesapla - GERÇEK yüzde (100'e tam ulaşması için)
+  const portfolioDistribution = rawDistribution.map((item, index, arr) => {
+    if (index === arr.length - 1) {
+      // Son eleman için kalan yüzdeyi ver (100'e tam ulaşsın)
+      const othersTotal = arr.slice(0, -1).reduce((sum, i) => 
+        sum + Math.round((i.value / totalPortfolioValue) * 100), 0
+      );
+      return {
+        ...item,
+        percentage: 100 - othersTotal,
+        exactPercentage: (item.value / totalPortfolioValue) * 100
+      };
+    }
+    return {
+      ...item,
+      percentage: Math.round((item.value / totalPortfolioValue) * 100),
+      exactPercentage: (item.value / totalPortfolioValue) * 100
+    };
+  });
+
+  // SVG Circle için hesaplama - BASIT VE DOĞRU
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius; // 251.33
+  
+  // Her segment için başlangıç açısını hesapla (0-360 derece arası)
+  let currentAngle = 0;
+  const segments = portfolioDistribution.map((item, index) => {
+    const angle = (item.exactPercentage / 100) * 360; // Bu segment'in açısı
+    const startAngle = currentAngle;
+    currentAngle += angle;
+    
+    // Arc için dasharray ve offset hesapla
+    const segmentLength = (item.exactPercentage / 100) * circumference;
     
     return {
       ...item,
+      startAngle,
+      endAngle: currentAngle,
       segmentLength,
-      offset: currentOffset,
     };
   });
 
@@ -82,64 +168,104 @@ export default function DashboardScreen() {
       <StatusBar />
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.headerIcon}
-          onPress={() => Alert.alert('Ayarlar', 'Ayarlar ekranı yakında eklenecek')}
-        >
-          <SettingsIcon size={24} color={COLORS.darkBlue} />
-        </TouchableOpacity>
+        {/* Uygulama İsmi (Sol) */}
         <Text style={styles.headerTitle}>PortföyMate</Text>
+        
+        {/* Portföy Seçici (Orta) */}
+        <PortfolioSelector />
+        
+        {/* Para Birimi Seçici (Sağ) */}
         <TouchableOpacity 
-          style={styles.headerIcon}
-          onPress={() => Alert.alert('Bildirimler', 'Bildirimler ekranı yakında eklenecek')}
+          style={styles.currencyButton}
+          onPress={() => setShowCurrencyModal(true)}
         >
-          <NotificationIcon size={24} color={COLORS.darkBlue} showBadge={false} />
+          <Text style={styles.currencyText}>{displayCurrency}</Text>
+          <ChevronDownIcon size={16} color={COLORS.darkBlue} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Portfolio Summary */}
         <View style={styles.summaryBox}>
-          <Text style={styles.summaryValue}>₺350.750,23</Text>
-          <Text style={styles.summaryChange}>+₺25.300,50   +7.8% Son 30 Gün</Text>
+          <Text style={styles.summaryValue}>
+            {currencySymbol}{totalPortfolioValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+          <Text style={styles.summaryLabel}>Toplam Portföy Değeri</Text>
         </View>
 
-        {/* Varlık Dağılımı Başlık */}
-        <Text style={styles.sectionTitle}>Varlık Dağılımı</Text>
-        
-        {/* Doughnut Chart (SVG) */}
-        <View style={styles.chartContainer}>
-          <View style={styles.chartBox}>
+        {/* Varlık Dağılımı Bölümü */}
+        <View style={styles.assetDistributionSection}>
+          {/* Başlık */}
+          <Text style={styles.sectionTitleCentered}>Varlık Dağılımı</Text>
+          
+          {/* Doughnut Chart (SVG) */}
+          <View style={styles.chartContainer}>
+            <View style={styles.chartBox}>
             <Svg width={180} height={180} viewBox="0 0 100 100">
-              {segments.map((segment, index) => (
+              {/* Arka plan çemberi (gri) - eğer %100 değilse */}
+              {portfolioDistribution.length > 0 && (
                 <Circle
-                  key={segment.name}
                   r={radius}
                   cx={50}
                   cy={50}
-                  stroke={segment.color}
+                  stroke="#f0f0f0"
                   strokeWidth={20}
                   fill="none"
-                  strokeDasharray={`${segment.segmentLength} ${circumference - segment.segmentLength}`}
-                  strokeDashoffset={-segment.offset + circumference / 4}
-                  strokeLinecap="butt"
                 />
-              ))}
+              )}
+              
+              {/* Her segment için ayrı çember çiz */}
+              {segments.map((segment, index) => {
+                // Başlangıç açısı (-90 derece = 12 saat pozisyonu)
+                const startAngle = segment.startAngle - 90;
+                
+                // Bu segment için dasharray: segmentLength kadar göster, kalanı gizle
+                const dashArray = `${segment.segmentLength} ${circumference - segment.segmentLength}`;
+                
+                // Offset: başlangıç açısına göre çemberi döndür
+                const dashOffset = -(segment.startAngle / 360) * circumference;
+                
+                return (
+                  <Circle
+                    key={`${segment.name}-${index}`}
+                    r={radius}
+                    cx={50}
+                    cy={50}
+                    stroke={segment.color}
+                    strokeWidth={20}
+                    fill="none"
+                    strokeDasharray={dashArray}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="butt"
+                    transform={`rotate(-90 50 50)`}
+                  />
+                );
+              })}
             </Svg>
             <View style={styles.chartCenter}>
-              <Text style={{ fontSize: 14, color: COLORS.darkGray }}>Değer</Text>
-              <Text style={{ fontSize: 20, color: COLORS.darkBlue, fontWeight: 'bold' }}>₺350.750</Text>
+              <Text style={{ fontSize: 12, color: COLORS.mediumGray }}>Toplam</Text>
+              <Text style={{ fontSize: 16, color: COLORS.darkBlue, fontWeight: 'bold' }}>
+                {currencySymbol}{totalPortfolioValue.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </Text>
             </View>
           </View>
-          
-          <View style={styles.chartLegendRight}>
-            {portfolioDistribution.map((item) => (
-              <View key={item.name} style={styles.legendItemRow}>
-                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-                <Text style={styles.legendText}>{item.name}</Text>
-                <Text style={styles.legendPercent}>{item.percentage}%</Text>
-              </View>
-            ))}
+        </View>
+        
+          {/* Legend - Dairenin altında */}
+          <View style={styles.chartLegendBottom}>
+            {portfolioDistribution.length > 0 ? (
+              portfolioDistribution.map((item) => (
+                <View key={item.name} style={styles.legendItemRow}>
+                  <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                  <Text style={styles.legendText}>{item.name}</Text>
+                  <Text style={styles.legendPercent}>{item.percentage}%</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={{ color: COLORS.mediumGray, fontSize: 14 }}>
+                Varlık eklemek için "İşlem Yap" sekmesini kullanın
+              </Text>
+            )}
           </View>
         </View>
 
@@ -148,21 +274,71 @@ export default function DashboardScreen() {
         
         {/* Quick Look Cards */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsRow} contentContainerStyle={{ paddingHorizontal: 16 }}>
-          {MOCK_ASSETS.map((asset, idx) => (
-            <View key={asset.name} style={styles.card}> 
-              <View style={[styles.cardIcon, { backgroundColor: asset.color }]}>
-                {asset.name === 'Altın' && <GoldIcon size={24} color="#fff" />}
-                {asset.name === 'Kripto' && <BitcoinIcon size={24} color="#fff" />}
-                {asset.name === 'Borsa' && <StockIcon size={24} color="#fff" />}
-                {asset.name === 'Döviz' && <CurrencyIcon size={24} color="#fff" />}
+          {portfolioDistribution.length > 0 ? (
+            portfolioDistribution.map((asset) => (
+              <View key={asset.name} style={styles.card}> 
+                <View style={[styles.cardIcon, { backgroundColor: asset.color }]}>
+                  {asset.name === 'Altın' && <GoldIcon size={24} color="#fff" />}
+                  {asset.name === 'Kripto' && <BitcoinIcon size={24} color="#fff" />}
+                  {asset.name === 'Borsa' && <StockIcon size={24} color="#fff" />}
+                  {asset.name === 'Döviz' && <CurrencyIcon size={24} color="#fff" />}
+                </View>
+                <Text style={styles.cardTitle}>{asset.name}</Text>
+                <Text style={styles.cardValue}>
+                  {currencySymbol}{asset.value.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </Text>
+                <Text style={styles.cardPercentage}>{asset.percentage}%</Text>
               </View>
-              <Text style={styles.cardTitle}>{asset.name}</Text>
-              <Text style={styles.cardValue}>{asset.value}</Text>
-              <Text style={[styles.cardChange, { color: asset.changeColor }]}>{asset.change} (24s)</Text>
+            ))
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>Henüz işlem yok</Text>
+              <Text style={styles.emptySubtext}>İşlem Yap sekmesinden başlayın</Text>
             </View>
-          ))}
+          )}
         </ScrollView>
       </ScrollView>
+
+      {/* Para Birimi Seçici Modal */}
+      <Modal
+        visible={showCurrencyModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCurrencyModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCurrencyModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Para Birimi Seçin</Text>
+            {Object.keys(EXCHANGE_RATES).map((currency) => (
+              <TouchableOpacity
+                key={currency}
+                style={[
+                  styles.currencyOption,
+                  displayCurrency === currency && styles.currencyOptionActive
+                ]}
+                onPress={() => {
+                  setDisplayCurrency(currency);
+                  setShowCurrencyModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.currencyOptionText,
+                  displayCurrency === currency && styles.currencyOptionTextActive
+                ]}>
+                  {CURRENCY_SYMBOLS[currency]} {currency}
+                </Text>
+                {displayCurrency === currency && (
+                  <Text style={styles.checkmark}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -183,15 +359,78 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.darkBlue,
+    flex: 0,
+  },
+  currencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F4FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  currencyText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.darkBlue,
   },
-  headerIcon: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.darkBlue,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  currencyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: '#F8F9FA',
+  },
+  currencyOptionActive: {
+    backgroundColor: '#E8F0FE',
+    borderWidth: 2,
+    borderColor: COLORS.darkBlue,
+  },
+  currencyOptionText: {
+    fontSize: 16,
+    color: COLORS.darkGray,
+    fontWeight: '500',
+  },
+  currencyOptionTextActive: {
+    color: COLORS.darkBlue,
+    fontWeight: '700',
+  },
+  checkmark: {
+    fontSize: 18,
+    color: COLORS.darkBlue,
+    fontWeight: 'bold',
   },
   scroll: {
     paddingBottom: 90,
@@ -206,26 +445,44 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.gold,
   },
-  summaryChange: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.green,
+  summaryLabel: {
+    fontSize: 14,
+    color: COLORS.mediumGray,
     marginTop: 4,
+  },
+  summaryTransactions: {
+    fontSize: 12,
+    color: COLORS.mediumGray,
+    marginTop: 2,
+  },
+  assetDistributionSection: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.darkGray,
+    color: COLORS.darkBlue,
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  sectionTitleCentered: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.darkBlue,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   chartContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginVertical: 8,
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   chartBox: {
     alignItems: 'center',
@@ -235,30 +492,34 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
   },
-  chartLegendRight: {
-    flex: 1,
-    marginLeft: 16,
+  chartLegendBottom: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 20,
   },
   legendItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    minWidth: 100,
   },
   legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
   },
   legendText: {
-    flex: 1,
     fontSize: 13,
     color: COLORS.darkGray,
+    fontWeight: '500',
+    marginRight: 6,
   },
   legendPercent: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: COLORS.darkGray,
+    color: COLORS.darkBlue,
   },
   cardsRow: {
     marginVertical: 8,
@@ -300,5 +561,28 @@ const styles = StyleSheet.create({
   cardChange: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  cardPercentage: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  emptyCard: {
+    minWidth: 200,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.darkGray,
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: COLORS.mediumGray,
   },
 });

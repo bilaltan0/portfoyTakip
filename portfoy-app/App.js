@@ -25,6 +25,9 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
+// Context Provider
+import { PortfolioProvider } from './context/PortfolioContext';
+
 // Screens
 import DashboardScreen from './screens/DashboardScreen';
 import TransactionScreen from './screens/TransactionScreen';
@@ -42,7 +45,8 @@ const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
+    <PortfolioProvider>
+      <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
@@ -79,6 +83,7 @@ export default function App() {
         />
       </Tab.Navigator>
     </NavigationContainer>
+    </PortfolioProvider>
   );
 }
 
