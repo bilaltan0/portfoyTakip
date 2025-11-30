@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
-import { ChevronDown, Plus, Edit2, Trash2, X, MoreVertical } from 'lucide-react-native';
+import { ChevronDown, Plus, Edit2, Trash2, X, MoreVertical, History } from 'lucide-react-native';
 import { COLORS, SIZES, FONTS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 
@@ -87,7 +87,12 @@ const PortfolioSelector = () => {
     setEditingName('');
   };
 
-
+  const handleShowHistory = (portfolioId) => {
+    setMenuVisible(null);
+    setModalVisible(false);
+    // Navigation'ı App.js'den prop olarak alacağız
+    Alert.alert('İşlem Geçmişi', 'Bu özellik yakında eklenecek');
+  };
 
   return (
     <>
@@ -111,7 +116,6 @@ const PortfolioSelector = () => {
           setModalVisible(false);
           setShowCreateInput(false);
           setEditingId(null);
-          setMenuVisible(null);
         }}
       >
         <TouchableOpacity
@@ -121,7 +125,6 @@ const PortfolioSelector = () => {
             setModalVisible(false);
             setShowCreateInput(false);
             setEditingId(null);
-            setMenuVisible(null);
           }}
         >
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
@@ -133,7 +136,6 @@ const PortfolioSelector = () => {
                   setModalVisible(false);
                   setShowCreateInput(false);
                   setEditingId(null);
-                  setMenuVisible(null);
                 }}
               >
                 <X size={24} color={COLORS.gray} />
@@ -177,67 +179,76 @@ const PortfolioSelector = () => {
                     ) : (
                       // Normal Mode
                       <>
-                        <View style={styles.portfolioRow}>
-                          <TouchableOpacity
-                            style={[
-                              styles.portfolioButtonWithMenu,
-                              isActive && styles.portfolioButtonActive,
-                            ]}
-                            onPress={() => handleSelectPortfolio(portfolio.id)}
-                          >
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={[
-                                  styles.portfolioName,
-                                  isActive && styles.portfolioNameActive,
-                                ]}
-                              >
-                                {portfolio.name}
-                              </Text>
-                            </View>
-                            {isActive && (
-                              <View style={styles.activeBadge}>
-                                <Text style={styles.activeBadgeText}>✓</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-
-                          {/* Daha Fazla Butonu - Sağda */}
-                          <TouchableOpacity
-                            style={styles.moreButtonInline}
-                            onPress={() => setMenuVisible(menuVisible === portfolio.id ? null : portfolio.id)}
-                          >
-                            <MoreVertical size={20} color={COLORS.gray} />
-                          </TouchableOpacity>
-                        </View>
-
-                        {/* Açılır Menü */}
-                        {menuVisible === portfolio.id && (
-                          <View style={styles.menuDropdown}>
-                            <TouchableOpacity
-                              style={styles.menuItem}
-                              onPress={() => {
-                                setMenuVisible(null);
-                                handleStartEdit(portfolio);
-                              }}
+                        <TouchableOpacity
+                          style={[
+                            styles.portfolioButton,
+                            isActive && styles.portfolioButtonActive,
+                          ]}
+                          onPress={() => handleSelectPortfolio(portfolio.id)}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.portfolioName,
+                                isActive && styles.portfolioNameActive,
+                              ]}
                             >
-                              <Edit2 size={18} color={COLORS.gray} />
-                              <Text style={styles.menuItemText}>Düzenle</Text>
-                            </TouchableOpacity>
-                            <View style={styles.menuDivider} />
-                            <TouchableOpacity
-                              style={styles.menuItem}
-                              onPress={() => {
-                                setMenuVisible(null);
-                                handleDeletePortfolio(portfolio.id);
-                              }}
-                            >
-                              <Trash2 size={18} color={COLORS.danger} />
-                              <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Sil</Text>
-                            </TouchableOpacity>
+                              {portfolio.name}
+                            </Text>
                           </View>
-                        )}
+                          {isActive && (
+                            <View style={styles.activeBadge}>
+                              <Text style={styles.activeBadgeText}>✓</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+
+                        {/* Daha Fazla Butonu */}
+                        <TouchableOpacity
+                          style={styles.moreButton}
+                          onPress={() => setMenuVisible(menuVisible === portfolio.id ? null : portfolio.id)}
+                        >
+                          <MoreVertical size={20} color={COLORS.gray} />
+                        </TouchableOpacity>
                       </>
+                    )}
+
+                    {/* Açılır Menü */}
+                    {menuVisible === portfolio.id && !isEditing && (
+                      <View style={styles.menuDropdown}>
+                        <TouchableOpacity
+                          style={styles.menuItem}
+                          onPress={() => {
+                            setMenuVisible(null);
+                            handleShowHistory(portfolio.id);
+                          }}
+                        >
+                          <History size={18} color={COLORS.primary} />
+                          <Text style={styles.menuItemText}>İşlem Geçmişi</Text>
+                        </TouchableOpacity>
+                        <View style={styles.menuDivider} />
+                        <TouchableOpacity
+                          style={styles.menuItem}
+                          onPress={() => {
+                            setMenuVisible(null);
+                            handleStartEdit(portfolio);
+                          }}
+                        >
+                          <Edit2 size={18} color={COLORS.gray} />
+                          <Text style={styles.menuItemText}>Düzenle</Text>
+                        </TouchableOpacity>
+                        <View style={styles.menuDivider} />
+                        <TouchableOpacity
+                          style={styles.menuItem}
+                          onPress={() => {
+                            setMenuVisible(null);
+                            handleDeletePortfolio(portfolio.id);
+                          }}
+                        >
+                          <Trash2 size={18} color={COLORS.danger} />
+                          <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Sil</Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </View>
                 );
@@ -245,42 +256,42 @@ const PortfolioSelector = () => {
 
               {/* Create New Portfolio */}
               {showCreateInput ? (
-                <View style={styles.createInputContainer}>
-                  <TextInput
-                    style={styles.createInput}
-                    value={newPortfolioName}
-                    onChangeText={setNewPortfolioName}
-                    placeholder="Yeni portföy adı"
-                    placeholderTextColor={COLORS.gray}
-                    autoFocus
-                  />
-                  <View style={styles.createActions}>
-                    <TouchableOpacity
-                      style={[styles.createButton, styles.createButtonSave]}
-                      onPress={handleCreatePortfolio}
-                    >
-                      <Text style={styles.createButtonText}>Oluştur</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.createButton, styles.createButtonCancel]}
-                      onPress={() => {
-                        setShowCreateInput(false);
-                        setNewPortfolioName('');
-                      }}
-                    >
-                      <Text style={styles.createButtonText}>İptal</Text>
-                    </TouchableOpacity>
+                  <View style={styles.createInputContainer}>
+                    <TextInput
+                      style={styles.createInput}
+                      value={newPortfolioName}
+                      onChangeText={setNewPortfolioName}
+                      placeholder="Yeni portföy adı"
+                      placeholderTextColor={COLORS.gray}
+                      autoFocus
+                    />
+                    <View style={styles.createActions}>
+                      <TouchableOpacity
+                        style={[styles.createButton, styles.createButtonSave]}
+                        onPress={handleCreatePortfolio}
+                      >
+                        <Text style={styles.createButtonText}>Oluştur</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.createButton, styles.createButtonCancel]}
+                        onPress={() => {
+                          setShowCreateInput(false);
+                          setNewPortfolioName('');
+                        }}
+                      >
+                        <Text style={styles.createButtonText}>İptal</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => setShowCreateInput(true)}
-                >
-                  <Plus size={20} color={COLORS.primary} />
-                  <Text style={styles.addButtonText}>Yeni Portföy Oluştur</Text>
-                </TouchableOpacity>
-              )}
+                ) : (
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => setShowCreateInput(true)}
+                  >
+                    <Plus size={20} color={COLORS.primary} />
+                    <Text style={styles.addButtonText}>Yeni Portföy Oluştur</Text>
+                  </TouchableOpacity>
+                )}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -340,14 +351,9 @@ const styles = StyleSheet.create({
   },
   portfolioItem: {
     marginBottom: 12,
+    position: 'relative',
   },
-  portfolioRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  portfolioButtonWithMenu: {
-    flex: 1,
+  portfolioButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -383,26 +389,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Daha Fazla Butonu - İnline
-  moreButtonInline: {
-    padding: 12,
-    borderRadius: 12,
+  // Daha Fazla Butonu
+  moreButton: {
+    padding: 8,
+    borderRadius: 8,
     backgroundColor: COLORS.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
   // Açılır Menü
   menuDropdown: {
+    position: 'absolute',
+    top: 60,
+    right: 8,
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 8,
-    marginTop: 8,
+    minWidth: 180,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 1000,
   },
   menuItem: {
     flexDirection: 'row',
@@ -420,6 +428,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.lightGray,
     marginVertical: 4,
   },
+  menuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+
+  // Action Buttons (kaldırıldı, artık menü var)
 
   // Edit Mode
   editContainer: {
@@ -516,3 +533,4 @@ const styles = StyleSheet.create({
 });
 
 export default PortfolioSelector;
+                <View style={styles.createInputContainer}>

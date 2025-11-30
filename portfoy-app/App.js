@@ -24,6 +24,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 
 // Context Provider
 import { PortfolioProvider } from './context/PortfolioContext';
@@ -32,6 +33,7 @@ import { PortfolioProvider } from './context/PortfolioContext';
 import DashboardScreen from './screens/DashboardScreen';
 import TransactionScreen from './screens/TransactionScreen';
 import MoreScreen from './screens/MoreScreen';
+import TransactionHistoryScreen from './screens/TransactionHistoryScreen';
 
 // Icons
 import { HomeIcon, TransactionIcon, MoreIcon } from './components/icons';
@@ -40,49 +42,58 @@ import { HomeIcon, TransactionIcon, MoreIcon } from './components/icons';
 import { COLORS } from './constants/theme';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
-
+// Tab Navigator Component
+function TabNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.gold,
+        tabBarInactiveTintColor: COLORS.white,
+        tabBarStyle: {
+          height: 64,
+          backgroundColor: COLORS.darkBlue,
+          borderTopWidth: 1,
+          borderTopColor: '#eee',
+        },
+      }}
+    >
+      <Tab.Screen 
+        name="Ana Sayfa" 
+        component={DashboardScreen}
+        options={{
+          tabBarIcon: ({ color }) => <HomeIcon size={28} color={color} />,
+        }}
+      />
+      <Tab.Screen 
+        name="İşlem Yap" 
+        component={TransactionScreen}
+        options={{
+          tabBarIcon: ({ color }) => <TransactionIcon size={28} color={color} />,
+        }}
+      />
+      <Tab.Screen 
+        name="Daha Fazla" 
+        component={MoreScreen}
+        options={{
+          tabBarIcon: ({ color }) => <MoreIcon size={28} color={color} />,
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 export default function App() {
   return (
     <PortfolioProvider>
       <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: COLORS.gold,
-          tabBarInactiveTintColor: COLORS.white,
-          tabBarStyle: {
-            height: 64,
-            backgroundColor: COLORS.darkBlue,
-            borderTopWidth: 1,
-            borderTopColor: '#eee',
-          },
-        }}
-      >
-        <Tab.Screen 
-          name="Ana Sayfa" 
-          component={DashboardScreen}
-          options={{
-            tabBarIcon: ({ color }) => <HomeIcon size={28} color={color} />,
-          }}
-        />
-        <Tab.Screen 
-          name="İşlem Yap" 
-          component={TransactionScreen}
-          options={{
-            tabBarIcon: ({ color }) => <TransactionIcon size={28} color={color} />,
-          }}
-        />
-        <Tab.Screen 
-          name="Daha Fazla" 
-          component={MoreScreen}
-          options={{
-            tabBarIcon: ({ color }) => <MoreIcon size={28} color={color} />,
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
     </PortfolioProvider>
   );
 }

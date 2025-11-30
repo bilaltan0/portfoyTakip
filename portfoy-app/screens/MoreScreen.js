@@ -25,11 +25,11 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
-import { SettingsIcon, TrashIcon, HelpCircleIcon, InfoIcon } from '../components/icons';
+import { SettingsIcon, TrashIcon, HelpCircleIcon, InfoIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
 
-export default function MoreScreen() {
-  const { clearAllData } = usePortfolio();
+export default function MoreScreen({ navigation }) {
+  const { clearAllData, activePortfolio } = usePortfolio();
 
   const handleClearData = () => {
     Alert.alert(
@@ -49,7 +49,22 @@ export default function MoreScreen() {
     );
   };
 
+  const handleTransactionHistory = () => {
+    if (!activePortfolio) {
+      Alert.alert('Uyarı', 'Lütfen önce bir portföy seçin.');
+      return;
+    }
+    navigation.navigate('TransactionHistory');
+  };
+
   const menuItems = [
+    {
+      id: 'history',
+      title: 'İşlem Geçmişi',
+      subtitle: 'Geçmiş alım-satım işlemlerini görüntüle',
+      icon: TransactionIcon,
+      onPress: handleTransactionHistory,
+    },
     {
       id: 'settings',
       title: 'Ayarlar',

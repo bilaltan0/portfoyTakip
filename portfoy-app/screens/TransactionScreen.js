@@ -19,7 +19,7 @@ import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 
 export default function TransactionScreen() {
-  const { addTransaction, categories } = usePortfolio();
+  const { addTransaction, categories, activePortfolio } = usePortfolio();
 
   // Form state
   const [mainCategory, setMainCategory] = useState('');
@@ -94,8 +94,33 @@ export default function TransactionScreen() {
     handleSubmit('buy');
   };
 
-  // Handle sell button
+  // Handle sell button - Stok kontrolü ile
   const handleSell = () => {
+    if (!validateForm()) return;
+
+    // Aktif portföydeki varlık pozisyonunu hesapla
+    const transactions = activePortfolio?.transactions || [];
+    const assetKey = `${mainCategory}_${assetName.trim()}`;
+    
+    let totalOwned = 0;
+    transactions.forEach(transaction => {
+      const txAssetKey = `${transaction.mainCategory}_${transaction.assetName}`;
+      if (txAssetKey === assetKey) {
+        if (transaction.type === 'buy') {
+          totalOwned += transaction.quantity;
+        } else if (transaction.type === 'sell') {
+          totalOwned -= transaction.quantity;
+        }
+      }
+    });
+
+    const sellQuantity = parseFloat(quantity);
+    
+    if (sellQuantity > totalOwned) {
+      Alert.alert('❌ Yetersiz Bakiye', 'Bu miktarda varlığınız yok.');
+      return;
+    }
+
     handleSubmit('sell');
   };
 

@@ -27,7 +27,68 @@
  * Tüm ekranlar bu dosyadan renk alır, böylece tema değişikliği tek yerden yapılır.
  */
 
+// ========================================
+// RENK PALETİ
+// ========================================
+
 export const COLORS = {
+  // Marka Renkleri
+  brand: {
+    primary: '#004AAD',
+    secondary: '#0066FF',
+    accent: '#00D4FF',
+  },
+  
+  // Semantic Renkler (Anlam taşıyan)
+  semantic: {
+    success: '#10B981',
+    error: '#EF4444',
+    warning: '#F59E0B',
+    info: '#3B82F6',
+  },
+  
+  // Varlık Kategorisi Renkleri
+  assets: {
+    gold: '#FFD700',
+    crypto: '#6366F1',
+    stock: '#10B981',
+    forex: '#F59E0B',
+  },
+  
+  // UI Renkleri
+  ui: {
+    background: '#F8FAFC',
+    surface: '#FFFFFF',
+    surfaceSecondary: '#F1F5F9',
+    border: '#E2E8F0',
+    borderLight: '#F1F5F9',
+    overlay: 'rgba(0, 0, 0, 0.5)',
+  },
+  
+  // Metin Renkleri
+  text: {
+    primary: '#1E293B',
+    secondary: '#64748B',
+    tertiary: '#94A3B8',
+    disabled: '#CBD5E1',
+    inverse: '#FFFFFF',
+  },
+  
+  // Grafik Renkleri
+  chart: {
+    blue1: '#2563EB',
+    blue2: '#60A5FA',
+    blue3: '#93C5FD',
+    blue4: '#DBEAFE',
+    purple1: '#7C3AED',
+    purple2: '#A78BFA',
+    green1: '#059669',
+    green2: '#34D399',
+    orange1: '#EA580C',
+    orange2: '#FB923C',
+  },
+
+  // Backward compatibility (eski kodlar için)
   darkBlue: '#004AAD',
   gold: '#FFD700',
   white: '#FFFFFF',
@@ -46,25 +107,150 @@ export const COLORS = {
   blue3: '#93c5fd',
 };
 
+// ========================================
+// BOYUTLAR VE SPACING
+// ========================================
+
+export const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+};
+
 export const SIZES = {
   base: 8,
   font: 14,
   radius: 12,
   padding: 16,
+  // Ek boyutlar
+  radiusSm: 8,
+  radiusMd: 12,
+  radiusLg: 16,
+  radiusXl: 24,
+  iconSm: 16,
+  iconMd: 24,
+  iconLg: 32,
+  iconXl: 48,
 };
 
+// ========================================
+// TİPOGRAFİ
+// ========================================
+
 export const FONTS = {
+  // Başlıklar
+  h1: {
+    fontSize: 32,
+    fontWeight: '700',
+    lineHeight: 40,
+  },
+  h2: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 32,
+  },
   h3: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '600',
+    lineHeight: 28,
   },
   h4: {
     fontSize: 16,
     fontWeight: '600',
+    lineHeight: 24,
   },
+  h5: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  
+  // Body
+  body1: {
+    fontSize: 16,
+    fontWeight: '400',
+    lineHeight: 24,
+  },
+  body2: {
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
+  },
+  body3: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 18,
+  },
+  
+  // Özel Kullanımlar
+  caption: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  button: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  overline: {
+    fontSize: 10,
+    fontWeight: '600',
+    lineHeight: 16,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  
+  // Backward compatibility
   body4: {
     fontSize: 14,
     fontWeight: '400',
+  },
+};
+
+// ========================================
+// GÖLGELER
+// ========================================
+
+export const SHADOWS = {
+  none: {
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  xl: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
 };
 

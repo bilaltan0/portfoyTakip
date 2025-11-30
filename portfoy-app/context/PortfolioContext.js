@@ -22,13 +22,15 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EXCHANGE_RATES } from '../constants/theme';
+import { STORAGE_KEYS, CATEGORIES } from '../constants/storage.constants';
+import { validateTransaction, handleError } from '../utils';
 
 // Context oluştur
 const PortfolioContext = createContext();
 
-// Storage key'leri
-const STORAGE_KEYS = {
-  PORTFOLIOS: '@portfolio_portfolios',
+// Storage key'leri (backward compatibility için local tanım)
+const LOCAL_STORAGE_KEYS = {
+  PORTFOLIOS: STORAGE_KEYS.PORTFOLIOS || '@portfolio_portfolios',
   ACTIVE_PORTFOLIO_ID: '@portfolio_active_id',
   CATEGORIES: '@portfolio_categories',
   DISPLAY_CURRENCY: '@portfolio_display_currency',

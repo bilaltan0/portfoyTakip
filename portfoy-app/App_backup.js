@@ -1,1 +1,0 @@
-// Backup of original App.js before simplification
