@@ -12,6 +12,27 @@ export {
   convertCurrency,
 } from './calculations';
 
+// Currency Utils
+export {
+  convertCurrency as convertCurrencyNew,
+  getCurrencySymbol,
+  formatCurrency as formatCurrencyNew,
+  formatPercentage as formatPercentageNew,
+} from './currencyUtils';
+
+// Color Utils
+export {
+  getCategoryColor,
+  generateColorForAsset,
+  getProfitLossColor,
+} from './colorUtils';
+
+// Asset Utils
+export {
+  getQuantityLabel,
+  getShortAssetName,
+} from './assetUtils';
+
 // Formatters
 export {
   formatCurrency,

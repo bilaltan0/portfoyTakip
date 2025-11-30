@@ -22,11 +22,12 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { SettingsIcon, TrashIcon, HelpCircleIcon, InfoIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
+import MenuItem from '../components/MenuItem';
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
@@ -106,35 +107,16 @@ export default function MoreScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Menu Items */}
         <View style={styles.menuSection}>
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.menuItem}
-                onPress={item.onPress}
-              >
-                <View style={[
-                  styles.iconContainer,
-                  item.danger && styles.iconContainerDanger
-                ]}>
-                  <Icon 
-                    size={24} 
-                    color={item.danger ? COLORS.red : COLORS.darkBlue} 
-                  />
-                </View>
-                <View style={styles.menuTextContainer}>
-                  <Text style={[
-                    styles.menuTitle,
-                    item.danger && styles.menuTitleDanger
-                  ]}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          {menuItems.map((item) => (
+            <MenuItem
+              key={item.id}
+              icon={item.icon}
+              title={item.title}
+              subtitle={item.subtitle}
+              onPress={item.onPress}
+              danger={item.danger}
+            />
+          ))}
         </View>
 
         {/* App Info */}
@@ -168,44 +150,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   menuSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F0F4FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  iconContainerDanger: {
-    backgroundColor: '#FFE5E5',
-  },
-  menuTextContainer: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.darkGray,
-    marginBottom: 4,
-  },
-  menuTitleDanger: {
-    color: COLORS.red,
-  },
-  menuSubtitle: {
-    fontSize: 14,
-    color: COLORS.mediumGray,
+    // MenuItem component'i kendi stilini yönetiyor
   },
   footer: {
     alignItems: 'center',

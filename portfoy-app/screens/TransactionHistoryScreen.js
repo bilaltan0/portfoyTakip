@@ -7,9 +7,10 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
+import TransactionItem from '../components/TransactionItem';
 
 export default function TransactionHistoryScreen({ navigation }) {
   const { activePortfolio } = usePortfolio();
@@ -59,64 +60,9 @@ export default function TransactionHistoryScreen({ navigation }) {
           </View>
         ) : (
           <View style={styles.transactionList}>
-            {transactions.map((transaction, index) => {
-              // transaction.type 'buy' veya 'sell' olarak küçük harfle geliyor
-              const isBuy = transaction.type === 'buy';
-              const date = new Date(transaction.date);
-              const dateStr = date.toLocaleDateString('tr-TR', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              });
-              const timeStr = date.toLocaleTimeString('tr-TR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              });
-
-              // Asset ismini kısalt - parantez içindeki kısmı çıkar
-              const shortAssetName = transaction.assetName.includes('(') 
-                ? transaction.assetName.split('(')[0].trim()
-                : transaction.assetName;
-
-              return (
-                <View key={index} style={styles.transactionItem}>
-                  {/* Sol: İkon ve Bilgi */}
-                  <View style={styles.transactionLeft}>
-                    <View style={[
-                      styles.iconContainer,
-                      isBuy ? styles.iconBuy : styles.iconSell
-                    ]}>
-                      {isBuy ? (
-                        <TrendingUp size={20} color={COLORS.success} />
-                      ) : (
-                        <TrendingDown size={20} color={COLORS.danger} />
-                      )}
-                    </View>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionType}>
-                        {isBuy ? 'Alış' : 'Satış'}
-                      </Text>
-                      <Text style={styles.transactionDate}>
-                        {dateStr} • {timeStr}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Sağ: Miktar */}
-                  <View style={styles.transactionRight}>
-                    <Text style={[
-                      styles.transactionAmount,
-                      isBuy ? styles.amountBuy : styles.amountSell
-                    ]}>
-                      {isBuy ? '+' : '-'}{transaction.quantity} {shortAssetName}
-                    </Text>
-                    <Text style={styles.transactionPrice}>
-                      {transaction.unitPrice} {transaction.currency}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
+            {transactions.map((transaction, index) => (
+              <TransactionItem key={index} transaction={transaction} />
+            ))}
           </View>
         )}
       </ScrollView>
@@ -158,70 +104,6 @@ const styles = StyleSheet.create({
   },
   transactionList: {
     gap: 12,
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  transactionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  iconBuy: {
-    backgroundColor: '#E8F5E9',
-  },
-  iconSell: {
-    backgroundColor: '#FFEBEE',
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionType: {
-    ...FONTS.h4,
-    color: COLORS.dark,
-    marginBottom: 4,
-  },
-  transactionDate: {
-    ...FONTS.body4,
-    color: COLORS.gray,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  amountBuy: {
-    color: '#10B981', // Yeşil
-  },
-  amountSell: {
-    color: '#E74C3C', // Kırmızı
-  },
-  transactionPrice: {
-    ...FONTS.body4,
-    color: COLORS.gray,
   },
   emptyContainer: {
     flex: 1,

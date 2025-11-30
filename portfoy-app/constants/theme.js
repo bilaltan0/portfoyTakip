@@ -105,6 +105,17 @@ export const COLORS = {
   blue1: '#2563eb',
   blue2: '#60a5fa',
   blue3: '#93c5fd',
+  
+  // Action button colors
+  profit: '#10B981',
+  loss: '#EF4444',
+  success: '#10B981',
+  
+  // Text colors (for components)
+  text: '#1E293B',
+  textPrimary: '#1E293B',
+  textSecondary: '#64748B',
+  background: '#F8FAFC',
 };
 
 // ========================================

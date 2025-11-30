@@ -8,7 +8,6 @@ import {
   Text, 
   View, 
   TextInput, 
-  TouchableOpacity, 
   ScrollView,
   Alert,
   KeyboardAvoidingView,
@@ -18,6 +17,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
+import CategoryButton from '../components/CategoryButton';
+import AssetChip from '../components/AssetChip';
+import CurrencyButton from '../components/CurrencyButton';
+import ActionButton from '../components/ActionButton';
 
 export default function TransactionScreen({ route, navigation }) {
   const { addTransaction, categories, activePortfolio } = usePortfolio();
@@ -30,19 +33,34 @@ export default function TransactionScreen({ route, navigation }) {
   const [currency, setCurrency] = useState('TRY');
   const [note, setNote] = useState('');
   
+  // Preselected asset kontrolü için ref
+  const isPreselectingRef = React.useRef(false);
+  
   // Ekran her focus olduğunda params'ı kontrol et ve form alanlarını doldur
   useFocusEffect(
     React.useCallback(() => {
       const preselectedAsset = route?.params?.preselectedAsset;
       
       if (preselectedAsset) {
+        isPreselectingRef.current = true;
         setMainCategory(preselectedAsset.mainCategory || '');
         setAssetName(preselectedAsset.assetName || '');
         // Parametreleri temizle
         navigation.setParams({ preselectedAsset: undefined });
+        // Preselecting işlemi bittiğini işaretle
+        setTimeout(() => {
+          isPreselectingRef.current = false;
+        }, 100);
       }
     }, [route?.params, navigation])
   );
+
+  // Ana kategori değiştiğinde varlık adını temizle (sadece manuel değişiklikse)
+  useEffect(() => {
+    if (!isPreselectingRef.current) {
+      setAssetName('');
+    }
+  }, [mainCategory]);
 
   // Ana kategoriler
   const mainCategories = Object.keys(categories);
@@ -164,23 +182,12 @@ export default function TransactionScreen({ route, navigation }) {
             <Text style={styles.label}>Ana Kategori *</Text>
             <View style={styles.categoryButtons}>
               {mainCategories.map((cat) => (
-                <TouchableOpacity
+                <CategoryButton
                   key={cat}
-                  style={[
-                    styles.categoryButton,
-                    mainCategory === cat && styles.categoryButtonActive,
-                  ]}
+                  label={cat}
+                  isActive={mainCategory === cat}
                   onPress={() => setMainCategory(cat)}
-                >
-                  <Text
-                    style={[
-                      styles.categoryButtonText,
-                      mainCategory === cat && styles.categoryButtonTextActive,
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
           </View>
@@ -203,23 +210,12 @@ export default function TransactionScreen({ route, navigation }) {
                   style={styles.assetScroll}
                 >
                   {PREDEFINED_ASSETS[mainCategory]?.map((asset) => (
-                    <TouchableOpacity
+                    <AssetChip
                       key={asset}
-                      style={[
-                        styles.assetChip,
-                        assetName === asset && styles.assetChipActive,
-                      ]}
+                      label={asset}
+                      isActive={assetName === asset}
                       onPress={() => setAssetName(asset)}
-                    >
-                      <Text
-                        style={[
-                          styles.assetChipText,
-                          assetName === asset && styles.assetChipTextActive,
-                        ]}
-                      >
-                        {asset}
-                      </Text>
-                    </TouchableOpacity>
+                    />
                   ))}
                 </ScrollView>
                 
@@ -267,23 +263,12 @@ export default function TransactionScreen({ route, navigation }) {
             <Text style={styles.label}>Para Birimi</Text>
             <View style={styles.currencyButtons}>
               {['TRY', 'USD', 'EUR'].map((curr) => (
-                <TouchableOpacity
+                <CurrencyButton
                   key={curr}
-                  style={[
-                    styles.currencyButton,
-                    currency === curr && styles.currencyButtonActive,
-                  ]}
+                  currency={curr}
+                  isActive={currency === curr}
                   onPress={() => setCurrency(curr)}
-                >
-                  <Text
-                    style={[
-                      styles.currencyButtonText,
-                      currency === curr && styles.currencyButtonTextActive,
-                    ]}
-                  >
-                    {curr}
-                  </Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
           </View>
@@ -318,21 +303,16 @@ export default function TransactionScreen({ route, navigation }) {
         {/* Fixed Action Buttons */}
         <View style={styles.fixedButtonContainer}>
           <View style={styles.actionButtonsRow}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.buyButton]}
+            <ActionButton
+              label="Alış"
+              variant="success"
               onPress={handleBuy}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionButtonText}>Alış</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.sellButton]}
+            />
+            <ActionButton
+              label="Satış"
+              variant="danger"
               onPress={handleSell}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionButtonText}>Satış</Text>
-            </TouchableOpacity>
+            />
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -392,54 +372,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  buyButton: {
-    backgroundColor: '#10B981',
-    shadowColor: '#10B981',
-  },
-  sellButton: {
-    backgroundColor: '#EF4444',
-    shadowColor: '#EF4444',
-  },
-  actionButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   categoryButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  categoryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: COLORS.lightGray,
-    backgroundColor: COLORS.white,
-  },
-  categoryButtonActive: {
-    borderColor: COLORS.gold,
-    backgroundColor: COLORS.gold,
-  },
-  categoryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.mediumGray,
-  },
-  categoryButtonTextActive: {
-    color: COLORS.white,
   },
   subCategoryScroll: {
     marginHorizontal: -20,
@@ -484,28 +420,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
-  assetChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    borderWidth: 2,
-    borderColor: COLORS.lightGray,
-    marginRight: 8,
-  },
-  assetChipActive: {
-    backgroundColor: '#6366F1',
-    borderColor: '#6366F1',
-  },
-  assetChipText: {
-    fontSize: 13,
-    color: COLORS.mediumGray,
-    fontWeight: '500',
-  },
-  assetChipTextActive: {
-    color: COLORS.white,
-    fontWeight: '700',
-  },
   input: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
@@ -530,27 +444,6 @@ const styles = StyleSheet.create({
   currencyButtons: {
     flexDirection: 'row',
     gap: 8,
-  },
-  currencyButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: COLORS.lightGray,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-  },
-  currencyButtonActive: {
-    borderColor: COLORS.green,
-    backgroundColor: COLORS.green,
-  },
-  currencyButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.mediumGray,
-  },
-  currencyButtonTextActive: {
-    color: COLORS.white,
   },
   totalContainer: {
     backgroundColor: COLORS.lightGray,
