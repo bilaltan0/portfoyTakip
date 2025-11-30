@@ -2,7 +2,7 @@
  * TransactionScreen.js - İşlem Yap Ekranı
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -15,10 +15,11 @@ import {
   Platform
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 
-export default function TransactionScreen() {
+export default function TransactionScreen({ route, navigation }) {
   const { addTransaction, categories, activePortfolio } = usePortfolio();
 
   // Form state
@@ -28,6 +29,20 @@ export default function TransactionScreen() {
   const [unitPrice, setUnitPrice] = useState('');
   const [currency, setCurrency] = useState('TRY');
   const [note, setNote] = useState('');
+  
+  // Ekran her focus olduğunda params'ı kontrol et ve form alanlarını doldur
+  useFocusEffect(
+    React.useCallback(() => {
+      const preselectedAsset = route?.params?.preselectedAsset;
+      
+      if (preselectedAsset) {
+        setMainCategory(preselectedAsset.mainCategory || '');
+        setAssetName(preselectedAsset.assetName || '');
+        // Parametreleri temizle
+        navigation.setParams({ preselectedAsset: undefined });
+      }
+    }, [route?.params, navigation])
+  );
 
   // Ana kategoriler
   const mainCategories = Object.keys(categories);

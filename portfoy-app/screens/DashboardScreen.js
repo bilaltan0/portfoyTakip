@@ -51,7 +51,7 @@ import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, Curre
 import { usePortfolio } from '../context/PortfolioContext';
 import PortfolioSelector from '../components/PortfolioSelector';
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
   const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
   
@@ -437,7 +437,21 @@ export default function DashboardScreen() {
             // Kategori seçiliyse: Varlık detay kartları
             displayDistribution.length > 0 ? (
               displayDistribution.map((asset) => (
-                <View key={asset.name} style={styles.assetDetailCard}>
+                <TouchableOpacity 
+                  key={asset.name} 
+                  style={styles.assetDetailCard}
+                  onPress={() => {
+                    // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
+                    navigation.navigate('İşlem Yap', {
+                      preselectedAsset: {
+                        mainCategory: selectedCategory,
+                        assetName: asset.fullName,
+                        type: 'buy'
+                      }
+                    });
+                  }}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.assetDetailHeader}>
                     <View style={[styles.assetDetailDot, { backgroundColor: asset.color }]} />
                     <Text style={styles.assetDetailName}>{asset.name}</Text>
@@ -467,7 +481,7 @@ export default function DashboardScreen() {
                   <View style={styles.assetDetailPercentage}>
                     <Text style={styles.assetDetailPercentageText}>{asset.percentage}%</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             ) : (
               <View style={styles.emptyCard}>
