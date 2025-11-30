@@ -1,7 +1,7 @@
 /**
  * CurrencyIcon.js - Döviz/Dolar İkonu
  * 
- * AMAÇ: Döviz için dolar ($) sembolü (Lucide Dollar Sign)
+ * AMAÇ: Döviz için dolar ($) sembolü (Lucide Circle Dollar Sign)
  * 
  * PROPS:
  * - size: İkon boyutu (default: 24)
@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import Svg, { Line, Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 export default function CurrencyIcon({ size = 24, color = '#fff' }) {
   return (
@@ -23,11 +23,12 @@ export default function CurrencyIcon({ size = 24, color = '#fff' }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      {/* Dikey çizgi */}
-      <Line x1="12" x2="12" y1="2" y2="22" />
+      {/* Dış çember */}
+      <Circle cx="12" cy="12" r="10" />
       
-      {/* $ sembolü path */}
-      <Path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      {/* $ sembolü */}
+      <Path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+      <Path d="M12 18V6" />
     </Svg>
   );
 }

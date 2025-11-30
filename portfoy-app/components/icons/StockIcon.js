@@ -1,7 +1,7 @@
 /**
  * StockIcon.js - Borsa/Hisse İkonu
  * 
- * AMAÇ: Borsa için yükselen grafik çizgisi
+ * AMAÇ: Borsa için yükselen grafik çizgisi (Lucide Trending Up)
  * 
  * PROPS:
  * - size: İkon boyutu (default: 24)
@@ -9,36 +9,25 @@
  */
 
 import React from 'react';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 export default function StockIcon({ size = 24, color = '#fff' }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* Ok ve kutu */}
+      <Path d="M16 7h6v6" />
+      
       {/* Yükselen grafik çizgisi */}
-      <Path
-        d="M4 18 L8 14 L12 16 L16 10 L20 6"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      
-      {/* Nokta vurguları */}
-      <Circle cx={4} cy={18} r={1.5} fill={color} />
-      <Circle cx={8} cy={14} r={1.5} fill={color} />
-      <Circle cx={12} cy={16} r={1.5} fill={color} />
-      <Circle cx={16} cy={10} r={1.5} fill={color} />
-      <Circle cx={20} cy={6} r={1.5} fill={color} />
-      
-      {/* Ok işareti */}
-      <Path
-        d="M17 6 L20 6 L20 9"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="m22 7-8.5 8.5-5-5L2 17" />
     </Svg>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * MoreIcon.js - Daha Fazla İkonu
  * 
- * AMAÇ: Tab Navigator'da Daha Fazla menüsü için üç nokta ikonu
+ * AMAÇ: Tab Navigator'da Daha Fazla menüsü için üç nokta ikonu (Lucide Ellipsis Vertical)
  * 
  * PROPS:
  * - size: İkon boyutu (default: 28)
@@ -17,11 +17,20 @@ import Svg, { Circle } from 'react-native-svg';
 
 export default function MoreIcon({ size = 28, color = '#FFFFFF' }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       {/* Üç dikey nokta */}
-      <Circle cx={12} cy={6} r={2} fill={color} />
-      <Circle cx={12} cy={12} r={2} fill={color} />
-      <Circle cx={12} cy={18} r={2} fill={color} />
+      <Circle cx="12" cy="12" r="1" />
+      <Circle cx="12" cy="5" r="1" />
+      <Circle cx="12" cy="19" r="1" />
     </Svg>
   );
 }
