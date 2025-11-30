@@ -118,7 +118,223 @@ Mobil geliştirme için ikon siteleri belirlendi:
 7. ⏳ Varlık ekleme/düzenleme özellikleri
 8. ⏳ API entegrasyonu
 
-## Dosya Yapısı
+## Modüler Yapıya Geçiş (30 Kasım 2025)
+Projeyi daha sürdürülebilir ve profesyonel hale getirmek için modüler yapıya geçtik:
+
+### Yeni Klasör Yapısı
+```
+MobilUygulamaPortfoy/
+├── portfoy-app/
+│   ├── screens/              # Ekran bileşenleri
+│   │   ├── DashboardScreen.js
+│   │   ├── TransactionScreen.js
+│   │   └── MoreScreen.js
+│   ├── components/           # Yeniden kullanılabilir bileşenler (henüz boş)
+│   ├── constants/            # Sabit değerler ve tema
+│   │   └── theme.js
+│   ├── App.js               # Sadece navigation container
+│   ├── app.json             # Expo yapılandırması
+│   ├── package.json         # Proje bağımlılıkları
+│   ├── babel.config.js      # Babel yapılandırması
+│   └── node_modules/        # Yüklü paketler
+└── rehber/
+    ├── README.md
+    ├── README-2.md
+    └── README-3.md
+```
+
+### Dosya ve Klasör Açıklamaları
+
+#### 📁 `/screens` - Ekran Bileşenleri
+**Amaç:** Her bir ekranın (sayfa) tam kodunu içerir. Her ekran kendi styles, layout ve logic'ini içerir.
+
+**Dosyalar:**
+- `DashboardScreen.js` - Ana ekran
+  - Header (Ayarlar ve Bildirim ikonları)
+  - Portföy özeti (toplam değer, kar/zarar)
+  - SVG Doughnut chart (varlık dağılımı)
+  - Hızlı bakış kartları (Altın, Kripto, Borsa, Döviz)
+  - Tüm styles bu dosyanın içinde
+  
+- `TransactionScreen.js` - İşlem yapma ekranı (placeholder)
+  - Varlık alım/satım işlemleri yapılacak
+  
+- `MoreScreen.js` - Daha fazla menüsü (placeholder)
+  - Ayarlar, profil, yardım vb. bağlantılar
+
+**Kullanım:** `App.js` bu ekranları import edip navigation'a bağlar.
+
+#### 📁 `/components` - Yeniden Kullanılabilir Bileşenler
+**Amaç:** Birden fazla ekranda kullanılacak küçük, bağımsız UI parçaları.
+
+**Planlanan Bileşenler:**
+- `Header.js` - Özelleştirilebilir header bileşeni
+- `PortfolioChart.js` - SVG doughnut chart
+- `AssetCard.js` - Hızlı bakış kartları (tekrar kullanılabilir)
+- `Button.js` - Özel stil button
+- `Input.js` - Özel stil input field
+
+**Avantajı:** 
+- Kod tekrarını önler
+- Değişiklik tek yerden yapılır
+- Test edilebilir, bağımsız parçalar
+
+#### 📁 `/constants` - Sabit Değerler
+**Amaç:** Uygulama genelinde kullanılan değişmez değerler (renkler, yazı boyutları, API URL'leri vb.)
+
+**Dosyalar:**
+- `theme.js` - Renk paleti ve tema sabitleri
+  ```javascript
+  export const COLORS = {
+    darkBlue: '#004AAD',   // Ana renk
+    gold: '#FFD700',       // Vurgu rengi
+    white: '#FFFFFF',      // Arka plan
+    darkGray: '#333333',   // Metin
+    green: '#1ABC9C',      // Pozitif değişim
+    red: '#E74C3C',        // Negatif değişim
+    blue1: '#2563eb',      // Chart segment 1
+    blue2: '#60a5fa',      // Chart segment 2
+    blue3: '#93c5fd'       // Chart segment 3
+  }
+  ```
+
+**Planlanan Sabitler:**
+- `API_URLS.js` - Backend endpoint'leri
+- `FONTS.js` - Font aileleri ve boyutları
+- `DIMENSIONS.js` - Standart boyutlar (padding, margin vb.)
+
+**Avantajı:**
+- Tasarım tutarlılığı
+- Tek yerden tema değişikliği
+- Renk/stil güncellemeleri kolay
+
+#### 📄 `App.js` - Ana Uygulama Dosyası
+**Amaç:** Sadece navigation yapısını yönetir. Ekranları import edip birbirine bağlar.
+
+**İçeriği:**
+- `NavigationContainer` - React Navigation wrapper
+- `Tab.Navigator` - Alt tab navigation yapısı
+- Screen import'ları
+- Tab bar ikonları (SVG)
+- Navigation konfigürasyonu
+
+**Özellikler:**
+- 78 satır - çok temiz ve okunabilir
+- Hiç style kodu yok (hepsi screen'lerde)
+- Sadece routing logic var
+
+#### 📄 `app.json` - Expo Yapılandırma Dosyası
+**Amaç:** Expo projesinin meta bilgileri ve yapılandırması.
+
+**İçeriği:**
+- Uygulama adı: `portfoy-app`
+- Versiyon: `1.0.0`
+- Yönelim: `portrait` (dikey)
+- Platform ayarları:
+  - iOS: iPad desteği
+  - Android: Adaptive icon, edge-to-edge
+  - Web: Favicon
+- Asset path'leri (icon, splash screen)
+- Yeni mimari: `newArchEnabled: true`
+
+**Ne zaman değişir:**
+- Uygulama adı değişirse
+- Yeni permission eklenirse
+- Platform-specific ayarlar gerekirse
+- Icon/splash screen güncellenirse
+
+#### 📄 `package.json` - Proje Bağımlılıkları
+**Amaç:** Projenin kullandığı tüm npm paketlerini ve script'leri tanımlar.
+
+**İçeriği:**
+- **dependencies:** Çalışma zamanı paketleri
+  - `expo`: Framework (v54.0.25)
+  - `react`, `react-native`: Temel
+  - `@react-navigation/*`: Navigation paketleri
+  - `react-native-svg`: SVG desteği
+  - `react-native-safe-area-context`: SafeArea
+  
+- **scripts:** Terminal komutları
+  - `npm start`: Expo server başlat
+  - `npm run android`: Android'de aç
+  - `npm run ios`: iOS'ta aç
+  - `npm run web`: Web'de aç
+
+**Ne zaman değişir:**
+- Yeni paket kurulunca: `npm install paket-adi`
+- Paket kaldırılınca: `npm uninstall paket-adi`
+- Script eklenince
+
+### Modüler Yapının Avantajları
+
+1. **Kod Organizasyonu** 📂
+   - Her dosya tek bir sorumluluğa odaklanır
+   - Dosyaları bulmak ve anlamak kolay
+
+2. **Yeniden Kullanılabilirlik** ♻️
+   - Components klasöründeki bileşenler her yerde kullanılabilir
+   - Kod tekrarı olmaz
+
+3. **Bakım Kolaylığı** 🔧
+   - Hata düzeltmek kolay (hangi dosyada olduğu belli)
+   - Yeni özellik eklemek hızlı
+
+4. **Takım Çalışması** 👥
+   - Farklı geliştiriciler farklı dosyalarda çalışabilir
+   - Git conflict'leri azalır
+
+5. **Test Edilebilirlik** ✅
+   - Her component bağımsız test edilebilir
+   - Mock data ile kolayca test
+
+6. **Ölçeklenebilirlik** 📈
+   - Proje büyüdükçe yapı bozulmaz
+   - Yeni ekranlar/componentler kolayca eklenir
+
+### Dosya İsimlendirme Kuralları
+
+- **Screen dosyaları:** `PascalCase` + `Screen.js` soneki
+  - Örnek: `DashboardScreen.js`, `SettingsScreen.js`
+  
+- **Component dosyaları:** `PascalCase` + `.js` uzantısı
+  - Örnek: `Button.js`, `AssetCard.js`
+  
+- **Constants dosyaları:** `camelCase` + `.js` uzantısı
+  - Örnek: `theme.js`, `apiUrls.js`
+  
+- **Klasörler:** `lowercase` (küçük harf)
+  - Örnek: `screens/`, `components/`, `constants/`
+
+### Import/Export Yapısı
+
+**Screens (Default Export):**
+```javascript
+// DashboardScreen.js
+export default function DashboardScreen() { ... }
+
+// App.js
+import DashboardScreen from './screens/DashboardScreen';
+```
+
+**Constants (Named Export):**
+```javascript
+// theme.js
+export const COLORS = { ... }
+
+// DashboardScreen.js
+import { COLORS } from '../constants/theme';
+```
+
+**Components (Default Export - gelecekte):**
+```javascript
+// Header.js
+export default function Header({ title }) { ... }
+
+// DashboardScreen.js
+import Header from '../components/Header';
+```
+
+## Dosya Yapısı (Eski)
 ```
 MobilUygulamaPortfoy/
 ├── portfoy-app/
