@@ -11,7 +11,11 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  TouchableOpacity,
+  ActivityIndicator,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,6 +25,7 @@ import CategoryButton from '../components/CategoryButton';
 import AssetChip from '../components/AssetChip';
 import CurrencyButton from '../components/CurrencyButton';
 import ActionButton from '../components/ActionButton';
+import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
 
 export default function TransactionScreen({ route, navigation }) {
   const { addTransaction, categories, activePortfolio } = usePortfolio();
@@ -33,8 +38,15 @@ export default function TransactionScreen({ route, navigation }) {
   const [currency, setCurrency] = useState('TRY');
   const [note, setNote] = useState('');
   
+  // Search state
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [popularAssets, setPopularAssets] = useState([]);
+  
   // Preselected asset kontrolü için ref
   const isPreselectingRef = React.useRef(false);
+  const searchTimeoutRef = React.useRef(null);
   
   // Ekran her focus olduğunda params'ı kontrol et ve form alanlarını doldur
   useFocusEffect(
@@ -59,8 +71,81 @@ export default function TransactionScreen({ route, navigation }) {
   useEffect(() => {
     if (!isPreselectingRef.current) {
       setAssetName('');
+      setSearchResults([]);
+      setShowDropdown(false);
+    }
+    
+    // Kategori seçildiğinde popüler varlıkları yükle
+    if (mainCategory) {
+      loadPopularAssets(mainCategory);
     }
   }, [mainCategory]);
+
+  // Popüler varlıkları yükle
+  const loadPopularAssets = (category) => {
+    const popular = getPopularAssets(category);
+    setPopularAssets(popular);
+  };
+
+  // Varlık arama fonksiyonu (debounced)
+  const handleAssetSearch = (text) => {
+    setAssetName(text);
+    
+    // Eğer text boşsa, sadece popüler varlıkları göster
+    if (!text.trim()) {
+      setSearchResults([]);
+      setShowDropdown(popularAssets.length > 0);
+      return;
+    }
+
+    // Önceki timeout'u temizle
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    setIsSearching(true);
+    setShowDropdown(true);
+
+    // 500ms sonra arama yap (debounce)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchAllAssets(text, mainCategory);
+        setSearchResults(results);
+        setIsSearching(false);
+      } catch (error) {
+        console.error('Asset search error:', error);
+        setIsSearching(false);
+        setSearchResults([]);
+      }
+    }, 500);
+  };
+
+  // Dropdown'dan varlık seçildiğinde
+  const handleSelectAsset = (asset) => {
+    // Parantez içindeki sembolü kaldır: "Bitcoin (BTC)" → "Bitcoin"
+    const displayName = asset.fullName || asset.assetName || asset.name;
+    const cleanName = displayName.split('(')[0].trim();
+    
+    setAssetName(cleanName);
+    setShowDropdown(false);
+    setSearchResults([]);
+    
+    console.log('✅ Varlık seçildi:', {
+      original: displayName,
+      clean: cleanName,
+      symbol: asset.symbol,
+      category: asset.category
+    });
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Ana kategoriler
   const mainCategories = Object.keys(categories);
@@ -106,10 +191,26 @@ export default function TransactionScreen({ route, navigation }) {
     // Form temizle
     resetForm();
 
+    // Profesyonel başarı mesajı
+    const totalAmount = (parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
     Alert.alert(
-      'Başarılı! ✅',
-      `${transactionType === 'buy' ? 'Alış' : 'Satış'} işlemi kaydedildi.\n\n${assetName}\n${quantity} adet x ${unitPrice} ${currency}`,
-      [{ text: 'Tamam' }]
+      transactionType === 'buy' ? '✅ Alış İşlemi Başarılı' : '✅ Satış İşlemi Başarılı',
+      `İşlem portföyünüze kaydedildi.\n\n` +
+      `📦 Varlık: ${assetName}\n` +
+      `📊 Miktar: ${quantity} adet\n` +
+      `💰 Birim Fiyat: ${parseFloat(unitPrice).toLocaleString('tr-TR')} ${currency}\n` +
+      `💵 Toplam Tutar: ${totalAmount} ${currency}`,
+      [
+        { 
+          text: '✓ Tamam',
+          style: 'default'
+        }
+      ],
+      { cancelable: false }
     );
   };
 
@@ -165,21 +266,28 @@ export default function TransactionScreen({ route, navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+        <TouchableWithoutFeedback 
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowDropdown(false);
+          }}
         >
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Yeni İşlem</Text>
+            <Text style={styles.headerTitle}>💼 Yeni İşlem</Text>
             <Text style={styles.headerSubtitle}>
-              Varlık bilgilerini doldurun ve alış/satış seçin
+              Varlık ekleyin, portföyünüzü güçlendirin
             </Text>
           </View>
 
           {/* Ana Kategori */}
           <View style={styles.section}>
-            <Text style={styles.label}>Ana Kategori *</Text>
+            <Text style={styles.label}>📂 Kategori Seçin</Text>
             <View style={styles.categoryButtons}>
               {mainCategories.map((cat) => (
                 <CategoryButton
@@ -194,39 +302,96 @@ export default function TransactionScreen({ route, navigation }) {
 
           {/* Varlık Adı */}
           <View style={styles.section}>
-            <Text style={styles.label}>Varlık Adı *</Text>
+            <Text style={styles.label}>🔍 Varlık Arama</Text>
             
             {!mainCategory ? (
               <View style={styles.warningBox}>
                 <Text style={styles.warningText}>
-                  ⚠️ Önce ana kategori seçin
+                  ⚠️ Önce yukarıdan kategori seçin
                 </Text>
               </View>
             ) : (
               <>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.assetScroll}
-                >
-                  {PREDEFINED_ASSETS[mainCategory]?.map((asset) => (
-                    <AssetChip
-                      key={asset}
-                      label={asset}
-                      isActive={assetName === asset}
-                      onPress={() => setAssetName(asset)}
-                    />
-                  ))}
-                </ScrollView>
-                
-                {/* Manuel giriş için TextInput (opsiyonel) */}
+                {/* Arama Input'u */}
                 <TextInput
-                  style={[styles.input, { marginTop: 12 }]}
-                  placeholder="veya özel varlık adı yazın..."
+                  style={styles.input}
+                  placeholder="Varlık ara... (Altın, BTC, BIST, Dolar)"
                   placeholderTextColor={COLORS.mediumGray}
                   value={assetName}
-                  onChangeText={setAssetName}
+                  onChangeText={handleAssetSearch}
+                  onFocus={() => setShowDropdown(true)}
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  enablesReturnKeyAutomatically={false}
                 />
+
+                {/* Arama Sonuçları Dropdown */}
+                {showDropdown && (
+                  <View style={styles.dropdown}>
+                    {isSearching ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color={COLORS.primary} />
+                        <Text style={styles.loadingText}>Aranıyor...</Text>
+                      </View>
+                    ) : assetName.trim() === '' && popularAssets.length > 0 ? (
+                      // Boş input -> Popüler varlıkları göster
+                      <View>
+                        <Text style={styles.dropdownHeader}>⭐ Popüler Varlıklar</Text>
+                        <ScrollView 
+                          style={styles.dropdownScroll}
+                          nestedScrollEnabled={true}
+                        >
+                          {popularAssets.map((asset, index) => (
+                            <TouchableOpacity
+                              key={`popular-${asset.symbol}-${index}`}
+                              style={styles.dropdownItem}
+                              onPress={() => handleSelectAsset(asset)}
+                            >
+                              <View style={styles.dropdownItemContent}>
+                                <Text style={styles.dropdownItemName}>
+                                  {asset.fullName || asset.assetName}
+                                </Text>
+                                <Text style={styles.dropdownItemSymbol}>
+                                  {asset.symbol}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    ) : searchResults.length > 0 ? (
+                      // Arama sonuçları var
+                      <ScrollView 
+                        style={styles.dropdownScroll}
+                        nestedScrollEnabled={true}
+                      >
+                        {searchResults.map((asset, index) => (
+                          <TouchableOpacity
+                            key={`${asset.symbol}-${index}`}
+                            style={styles.dropdownItem}
+                            onPress={() => handleSelectAsset(asset)}
+                          >
+                            <View style={styles.dropdownItemContent}>
+                              <Text style={styles.dropdownItemName}>
+                                {asset.fullName || asset.assetName}
+                              </Text>
+                              <Text style={styles.dropdownItemSymbol}>
+                                {asset.symbol} • {asset.category}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    ) : assetName.trim() !== '' ? (
+                      // Arama yaptı ama sonuç yok
+                      <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>🔍 Sonuç bulunamadı</Text>
+                        <Text style={styles.emptyHint}>Farklı bir arama terimi deneyin</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
               </>
             )}
           </View>
@@ -234,10 +399,10 @@ export default function TransactionScreen({ route, navigation }) {
           {/* Miktar ve Fiyat */}
           <View style={styles.row}>
             <View style={[styles.section, styles.halfWidth]}>
-              <Text style={styles.label}>Miktar *</Text>
+              <Text style={styles.label}>📊 Miktar</Text>
               <TextInput
                 style={styles.input}
-                placeholder="0.00"
+                placeholder="Adet girin"
                 placeholderTextColor={COLORS.mediumGray}
                 value={quantity}
                 onChangeText={setQuantity}
@@ -246,10 +411,10 @@ export default function TransactionScreen({ route, navigation }) {
             </View>
 
             <View style={[styles.section, styles.halfWidth]}>
-              <Text style={styles.label}>Birim Fiyat *</Text>
+              <Text style={styles.label}>💰 Birim Fiyat</Text>
               <TextInput
                 style={styles.input}
-                placeholder="0.00"
+                placeholder="Fiyat girin"
                 placeholderTextColor={COLORS.mediumGray}
                 value={unitPrice}
                 onChangeText={setUnitPrice}
@@ -260,7 +425,7 @@ export default function TransactionScreen({ route, navigation }) {
 
           {/* Para Birimi */}
           <View style={styles.section}>
-            <Text style={styles.label}>Para Birimi</Text>
+            <Text style={styles.label}>💵 Para Birimi</Text>
             <View style={styles.currencyButtons}>
               {['TRY', 'USD', 'EUR'].map((curr) => (
                 <CurrencyButton
@@ -275,41 +440,49 @@ export default function TransactionScreen({ route, navigation }) {
 
           {/* Not */}
           <View style={styles.section}>
-            <Text style={styles.label}>Not (Opsiyonel)</Text>
+            <Text style={styles.label}>📝 Not Ekleyin (İsteğe Bağlı)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="İşlem hakkında not ekleyin"
+              placeholder="İşlem detaylarını yazabilirsiniz..."
               placeholderTextColor={COLORS.mediumGray}
               value={note}
               onChangeText={setNote}
               multiline
               numberOfLines={3}
+              autoCorrect={true}
+              autoCapitalize="sentences"
+              returnKeyType="done"
+              blurOnSubmit={true}
             />
           </View>
 
           {/* Toplam Değer Gösterimi */}
           {quantity && unitPrice && (
             <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Toplam Tutar</Text>
+              <View>
+                <Text style={styles.totalLabel}>Toplam Tutar</Text>
+                <Text style={styles.totalHint}>{quantity} × {unitPrice} {currency}</Text>
+              </View>
               <Text style={styles.totalValue}>
-                {(parseFloat(quantity) * parseFloat(unitPrice)).toFixed(2)} {currency}
+                {(parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
               </Text>
             </View>
           )}
 
           <View style={{ height: 20 }} />
         </ScrollView>
+        </TouchableWithoutFeedback>
 
         {/* Fixed Action Buttons */}
         <View style={styles.fixedButtonContainer}>
           <View style={styles.actionButtonsRow}>
             <ActionButton
-              label="Alış"
+              label="📈 Alış Yap"
               variant="success"
               onPress={handleBuy}
             />
             <ActionButton
-              label="Satış"
+              label="📉 Satış Yap"
               variant="danger"
               onPress={handleSell}
             />
@@ -350,23 +523,26 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: '800',
     color: COLORS.text,
-    marginBottom: 8,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.mediumGray,
+    fontWeight: '400',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: 0.2,
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -455,13 +631,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalLabel: {
-    fontSize: 14,
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  totalHint: {
+    fontSize: 12,
     color: COLORS.mediumGray,
-    fontWeight: '600',
+    fontWeight: '400',
   },
   totalValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.primary,
+  },
+  // Dropdown Styles
+  dropdown: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 12,
+    marginTop: 8,
+    maxHeight: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  dropdownScroll: {
+    maxHeight: 250,
+  },
+  dropdownHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.mediumGray,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  dropdownItemContent: {
+    flexDirection: 'column',
+  },
+  dropdownItemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  dropdownItemSymbol: {
+    fontSize: 13,
+    color: COLORS.mediumGray,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.mediumGray,
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  emptyHint: {
+    fontSize: 13,
+    color: COLORS.mediumGray,
   },
 });

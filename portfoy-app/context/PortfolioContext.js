@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EXCHANGE_RATES } from '../constants/theme';
 import { STORAGE_KEYS, CATEGORIES } from '../constants/storage.constants';
 import { validateTransaction, handleError } from '../utils';
+import { getAssetMapping } from '../constants/apiMapping';
 
 // Context oluştur
 const PortfolioContext = createContext();
@@ -172,9 +173,45 @@ export function PortfolioProvider({ children }) {
    * @param {Object} transaction - İşlem verisi
    */
   const addTransaction = (transaction) => {
+    // API mapping bilgisini otomatik ekle
+    let apiMapping = transaction.apiMapping;
+    
+    if (!apiMapping) {
+      // Statik mapping'den bul
+      apiMapping = getAssetMapping(transaction.assetName);
+      
+      // Bulamazsa dinamik olarak tahmin et
+      if (!apiMapping) {
+        const symbolMatch = transaction.assetName.match(/\(([^)]+)\)/);
+        const symbol = symbolMatch ? symbolMatch[1] : transaction.assetName;
+        
+        // Hisse senedi kontrolü
+        if (symbol.includes('.IS')) {
+          apiMapping = {
+            symbol,
+            provider: 'yahoo',
+            id: symbol,
+            currency: 'TRY',
+            category: transaction.mainCategory || 'Borsa'
+          };
+        }
+        // Kripto para varsayımı
+        else if (symbol.length >= 2 && symbol.length <= 5) {
+          apiMapping = {
+            symbol,
+            provider: 'coingecko',
+            id: symbol.toLowerCase(),
+            currency: 'USD',
+            category: transaction.mainCategory || 'Kripto'
+          };
+        }
+      }
+    }
+    
     const newTransaction = {
       id: Date.now().toString(),
       ...transaction,
+      apiMapping, // API bilgisini ekle
       createdAt: new Date().toISOString(),
     };
 
@@ -189,6 +226,7 @@ export function PortfolioProvider({ children }) {
       assetName: newTransaction.assetName,
       quantity: newTransaction.quantity,
       unitPrice: newTransaction.unitPrice,
+      apiMapping: newTransaction.apiMapping,
     });
   };
 
