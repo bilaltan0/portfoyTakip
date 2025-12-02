@@ -12,8 +12,30 @@ import { formatCurrency } from '../utils/currencyUtils';
 export default function AssetDetailCard({ 
   asset,
   currencySymbol = '₺',
-  onPress 
+  onPress,
+  currentPrice = null, // Anlık fiyat (opsiyonel)
+  profitLoss = null // Kar/zarar verisi (opsiyonel)
 }) {
+  // Kar/zarar hesaplama
+  const hasProfitLoss = currentPrice && currentPrice > 0;
+  let plAmount = 0;
+  let plPercentage = 0;
+  let plColor = COLORS.mediumGray;
+  let plIcon = '';
+
+  if (hasProfitLoss) {
+    plAmount = (currentPrice - asset.avgPrice) * asset.quantity;
+    plPercentage = ((currentPrice - asset.avgPrice) / asset.avgPrice) * 100;
+    
+    if (plAmount > 0) {
+      plColor = COLORS.success;
+      plIcon = '▲';
+    } else if (plAmount < 0) {
+      plColor = COLORS.danger;
+      plIcon = '▼';
+    }
+  }
+
   return (
     <TouchableOpacity 
       style={styles.card}
@@ -44,6 +66,19 @@ export default function AssetDetailCard({
           })}
         </Text>
       </View>
+
+      {/* Anlık Fiyat (varsa) */}
+      {hasProfitLoss && (
+        <View style={styles.row}>
+          <Text style={styles.label}>Anlık Fiyat</Text>
+          <Text style={[styles.value, { color: COLORS.primary }]}>
+            {currencySymbol}{currentPrice.toLocaleString('tr-TR', { 
+              maximumFractionDigits: 2,
+              minimumFractionDigits: 2 
+            })}
+          </Text>
+        </View>
+      )}
       
       <View style={styles.row}>
         <Text style={styles.label}>Toplam</Text>
@@ -54,9 +89,23 @@ export default function AssetDetailCard({
           })}
         </Text>
       </View>
+
+      {/* Kar/Zarar (varsa) */}
+      {hasProfitLoss && Math.abs(plAmount) > 0 && (
+        <View style={[styles.profitLossBox, { backgroundColor: `${plColor}15` }]}>
+          <Text style={[styles.profitLossText, { color: plColor }]}>
+            {plIcon} {plAmount >= 0 ? '+' : ''}{currencySymbol}{Math.abs(plAmount).toLocaleString('tr-TR', {
+              maximumFractionDigits: 2,
+              minimumFractionDigits: 2
+            })} ({plPercentage >= 0 ? '+' : ''}{plPercentage.toFixed(2)}%)
+          </Text>
+        </View>
+      )}
       
       <View style={styles.percentage}>
-        <Text style={styles.percentageText}>{asset.percentage}%</Text>
+        <Text style={styles.percentageText}>
+          {asset.exactPercentage ? asset.exactPercentage.toFixed(2) : asset.percentage}%
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -109,6 +158,17 @@ const styles = StyleSheet.create({
   totalValue: {
     fontWeight: 'bold',
     color: COLORS.darkBlue,
+  },
+  profitLossBox: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  profitLossText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   percentage: {
     marginTop: 8,
