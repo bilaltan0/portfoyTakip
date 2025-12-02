@@ -159,15 +159,14 @@ export default function DashboardScreen({ navigation }) {
         const assetKey = tx.assetName;
         if (!categoryAssets[assetKey]) {
           categoryAssets[assetKey] = {
-            totalValue: 0,
             totalQuantity: 0,
-            transactions: []
+            transactions: [],
+            apiMapping: tx.apiMapping // API mapping bilgisini sakla
           };
         }
         
-        // Alış/satış işlemlerini hesaba kat
+        // Alış/satış işlemlerini hesaba kat - sadece miktar
         const multiplier = tx.type === 'buy' ? 1 : -1;
-        categoryAssets[assetKey].totalValue += (tx.quantity * tx.unitPrice) * multiplier;
         categoryAssets[assetKey].totalQuantity += tx.quantity * multiplier;
         categoryAssets[assetKey].transactions.push(tx);
       }
@@ -175,22 +174,38 @@ export default function DashboardScreen({ navigation }) {
     
     // Array'e çevir ve pozitif değerleri filtrele
     const assetArray = Object.entries(categoryAssets)
-      .filter(([_, data]) => data.totalValue > 0)
+      .filter(([_, data]) => data.totalQuantity > 0)
       .map(([name, data]) => {
         // Ortalama alış fiyatı hesapla (sadece buy işlemlerinden)
         const buyTransactions = data.transactions.filter(tx => tx.type === 'buy');
-        const totalBuyValue = buyTransactions.reduce((sum, tx) => sum + (tx.quantity * tx.unitPrice), 0);
-        const totalBuyQuantity = buyTransactions.reduce((sum, tx) => sum + tx.quantity, 0);
-        const avgPrice = totalBuyQuantity > 0 ? totalBuyValue / totalBuyQuantity : 0;
+        
+        // Her işlemi önce TRY'ye çevir, sonra ortalama al
+        let totalBuyValueInTRY = 0;
+        let totalBuyQuantity = 0;
+        
+        buyTransactions.forEach(tx => {
+          const txCurrency = tx.currency || 'TRY';
+          const exchangeRate = EXCHANGE_RATES[txCurrency] || 1;
+          const priceInTRY = tx.unitPrice * exchangeRate; // İşlemin para birimini TRY'ye çevir
+          
+          totalBuyValueInTRY += tx.quantity * priceInTRY;
+          totalBuyQuantity += tx.quantity;
+        });
+        
+        const avgPriceInTRY = totalBuyQuantity > 0 ? totalBuyValueInTRY / totalBuyQuantity : 0;
+        
+        // TOPLAM DEĞER: Ortalama alış fiyatı × mevcut miktar (TRY cinsinden)
+        const totalValueInTRY = avgPriceInTRY * data.totalQuantity;
         
         return {
           name: name.includes('(') ? name.split('(')[0].trim() : name,
           fullName: name,
-          value: convertCurrency(data.totalValue),
+          value: convertCurrency(totalValueInTRY), // Gerçek toplam değer
           quantity: data.totalQuantity,
-          avgPrice: convertCurrency(avgPrice),
+          avgPrice: convertCurrency(avgPriceInTRY), // TRY'den displayCurrency'ye çevir
           color: generateColorForAsset(name),
-          quantityLabel: getQuantityLabel(name, categoryName)
+          quantityLabel: getQuantityLabel(name, categoryName),
+          apiMapping: data.apiMapping // API mapping'i aktar
         };
       });
     

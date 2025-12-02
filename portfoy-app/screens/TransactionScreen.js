@@ -26,6 +26,7 @@ import AssetChip from '../components/AssetChip';
 import CurrencyButton from '../components/CurrencyButton';
 import ActionButton from '../components/ActionButton';
 import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
+import { fetchAssetPrice } from '../services/priceService';
 
 export default function TransactionScreen({ route, navigation }) {
   const { addTransaction, categories, activePortfolio } = usePortfolio();
@@ -43,6 +44,10 @@ export default function TransactionScreen({ route, navigation }) {
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [popularAssets, setPopularAssets] = useState([]);
+  
+  // Price fetching state
+  const [isFetchingPrice, setIsFetchingPrice] = useState(false);
+  const [selectedAssetInfo, setSelectedAssetInfo] = useState(null); // API mapping bilgisi
   
   // Preselected asset kontrolü için ref
   const isPreselectingRef = React.useRef(false);
@@ -73,6 +78,8 @@ export default function TransactionScreen({ route, navigation }) {
       setAssetName('');
       setSearchResults([]);
       setShowDropdown(false);
+      setUnitPrice(''); // Fiyatı da temizle
+      setSelectedAssetInfo(null); // API mapping'i de temizle
     }
     
     // Kategori seçildiğinde popüler varlıkları yükle
@@ -90,6 +97,12 @@ export default function TransactionScreen({ route, navigation }) {
   // Varlık arama fonksiyonu (debounced)
   const handleAssetSearch = (text) => {
     setAssetName(text);
+    
+    // Eğer seçili bir varlık varsa, temizle (kullanıcı değiştirmeye başladı)
+    if (selectedAssetInfo) {
+      setSelectedAssetInfo(null);
+      setUnitPrice('');
+    }
     
     // Eğer text boşsa, sadece popüler varlıkları göster
     if (!text.trim()) {
@@ -130,12 +143,55 @@ export default function TransactionScreen({ route, navigation }) {
     setShowDropdown(false);
     setSearchResults([]);
     
+    // API mapping bilgisini sakla (anlık fiyat için)
+    setSelectedAssetInfo({
+      symbol: asset.symbol,
+      provider: asset.provider,
+      id: asset.id,
+      currency: asset.currency,
+      category: asset.category,
+      fullName: displayName
+    });
+    
     console.log('✅ Varlık seçildi:', {
       original: displayName,
       clean: cleanName,
       symbol: asset.symbol,
       category: asset.category
     });
+  };
+
+  // Anlık fiyat çekme fonksiyonu
+  const handleFetchLivePrice = async () => {
+    if (!assetName.trim()) {
+      Alert.alert('Uyarı', 'Önce bir varlık seçin');
+      return;
+    }
+
+    if (!selectedAssetInfo) {
+      Alert.alert('Uyarı', 'Varlık bilgisi bulunamadı. Lütfen arama yaparak varlık seçin.');
+      return;
+    }
+
+    try {
+      setIsFetchingPrice(true);
+      
+      // API'den fiyat çek
+      const priceData = await fetchAssetPrice(assetName, { apiMapping: selectedAssetInfo });
+      
+      if (priceData && priceData.price > 0) {
+        // Fiyatı forma doldur (sessizce)
+        setUnitPrice(priceData.price.toString());
+        setCurrency(priceData.currency);
+      } else {
+        Alert.alert('Hata', 'Fiyat bilgisi alınamadı');
+      }
+    } catch (error) {
+      console.error('Fiyat çekme hatası:', error);
+      Alert.alert('Hata', `Fiyat alınırken hata oluştu:\n${error.message}`);
+    } finally {
+      setIsFetchingPrice(false);
+    }
   };
 
   // Cleanup on unmount
@@ -313,17 +369,38 @@ export default function TransactionScreen({ route, navigation }) {
             ) : (
               <>
                 {/* Arama Input'u */}
-                <TextInput
-                  style={styles.input}
-                  placeholder="Varlık ara... (Altın, BTC, BIST, Dolar)"
-                  placeholderTextColor={COLORS.mediumGray}
-                  value={assetName}
-                  onChangeText={handleAssetSearch}
-                  onFocus={() => setShowDropdown(true)}
-                  autoCorrect={false}
-                  returnKeyType="search"
-                  enablesReturnKeyAutomatically={false}
-                />
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.input, assetName.trim() && styles.inputWithClear]}
+                    placeholder="Varlık ara... (Altın, BTC, BIST, Dolar)"
+                    placeholderTextColor={COLORS.mediumGray}
+                    value={assetName}
+                    onChangeText={handleAssetSearch}
+                    onFocus={() => {
+                      // Eğer seçili varlık varsa dropdown gösterme
+                      if (!selectedAssetInfo) {
+                        setShowDropdown(true);
+                      }
+                    }}
+                    autoCorrect={false}
+                    returnKeyType="search"
+                    enablesReturnKeyAutomatically={false}
+                  />
+                  {/* Temizle Butonu */}
+                  {assetName.trim() && (
+                    <TouchableOpacity 
+                      style={styles.clearButton}
+                      onPress={() => {
+                        setAssetName('');
+                        setSelectedAssetInfo(null);
+                        setUnitPrice('');
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <Text style={styles.clearButtonText}>× Temizle</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 {/* Arama Sonuçları Dropdown */}
                 {showDropdown && (
@@ -397,30 +474,53 @@ export default function TransactionScreen({ route, navigation }) {
           </View>
 
           {/* Miktar ve Fiyat */}
-          <View style={styles.row}>
-            <View style={[styles.section, styles.halfWidth]}>
-              <Text style={styles.label}>📊 Miktar</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Adet girin"
-                placeholderTextColor={COLORS.mediumGray}
-                value={quantity}
-                onChangeText={setQuantity}
-                keyboardType="decimal-pad"
-              />
+          <View style={styles.section}>
+            <View style={styles.row}>
+              <View style={[styles.halfWidth]}>
+                <Text style={styles.label}>📊 Miktar</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Adet"
+                  placeholderTextColor={COLORS.mediumGray}
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View style={[styles.halfWidth]}>
+                <Text style={styles.label}>💰 Birim Fiyat</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Fiyat girin"
+                  placeholderTextColor={COLORS.mediumGray}
+                  value={unitPrice}
+                  onChangeText={setUnitPrice}
+                  keyboardType="decimal-pad"
+                />
+              </View>
             </View>
 
-            <View style={[styles.section, styles.halfWidth]}>
-              <Text style={styles.label}>💰 Birim Fiyat</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Fiyat girin"
-                placeholderTextColor={COLORS.mediumGray}
-                value={unitPrice}
-                onChangeText={setUnitPrice}
-                keyboardType="decimal-pad"
-              />
-            </View>
+            {/* Anlık Fiyat Butonu - Input'ların altında */}
+            {assetName.trim() && selectedAssetInfo && (
+              <TouchableOpacity 
+                onPress={handleFetchLivePrice}
+                disabled={isFetchingPrice}
+                style={styles.livePriceButtonCompact}
+              >
+                {isFetchingPrice ? (
+                  <>
+                    <ActivityIndicator size="small" color={COLORS.white} style={{ marginRight: 8 }} />
+                    <Text style={styles.livePriceButtonCompactText}>Fiyat alınıyor...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.livePriceButtonCompactIcon}>📊</Text>
+                    <Text style={styles.livePriceButtonCompactText}>Anlık Fiyatı Çek</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Para Birimi */}
@@ -714,5 +814,53 @@ const styles = StyleSheet.create({
   emptyHint: {
     fontSize: 13,
     color: COLORS.mediumGray,
+  },
+  // Live Price Compact Button (input'ların altında)
+  livePriceButtonCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  livePriceButtonCompactIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  livePriceButtonCompactText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  // Temizle butonu için container ve stiller
+  inputContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  inputWithClear: {
+    paddingRight: 90, // Temizle butonu için sağda boşluk
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: COLORS.lightGray,
+  },
+  clearButtonText: {
+    fontSize: 13,
+    color: COLORS.mediumGray,
+    fontWeight: '500',
   },
 });

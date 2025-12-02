@@ -38,7 +38,7 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Ort. Alış</Text>
         <Text style={styles.value}>
-          {formatCurrency(asset.avgPrice, 'TRY', { 
+          {currencySymbol}{asset.avgPrice.toLocaleString('tr-TR', { 
             maximumFractionDigits: 2,
             minimumFractionDigits: 2 
           })}
@@ -48,7 +48,10 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Toplam</Text>
         <Text style={[styles.value, styles.totalValue]}>
-          {formatCurrency(asset.value, 'TRY')}
+          {currencySymbol}{asset.value.toLocaleString('tr-TR', {
+            maximumFractionDigits: 2,
+            minimumFractionDigits: 2
+          })}
         </Text>
       </View>
       
