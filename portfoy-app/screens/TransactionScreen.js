@@ -2,20 +2,22 @@
  * TransactionScreen.js - İşlem Yap Ekranı
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   TextInput, 
   ScrollView,
+  Dimensions,
   Alert,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
   ActivityIndicator,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  Animated
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,6 +29,9 @@ import CurrencyButton from '../components/CurrencyButton';
 import ActionButton from '../components/ActionButton';
 import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
 import { fetchAssetPrice } from '../services/priceService';
+
+// Ekran boyutunu al - Responsive tasarım için
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TransactionScreen({ route, navigation }) {
   const { addTransaction, categories, activePortfolio } = usePortfolio();
@@ -49,9 +54,39 @@ export default function TransactionScreen({ route, navigation }) {
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   const [selectedAssetInfo, setSelectedAssetInfo] = useState(null); // API mapping bilgisi
   
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  
   // Preselected asset kontrolü için ref
   const isPreselectingRef = React.useRef(false);
   const searchTimeoutRef = React.useRef(null);
+  
+  // Toast notification göster
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    // Animasyon: aşağıdan yukarı çık
+    Animated.sequence([
+      Animated.timing(toastAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2500),
+      Animated.timing(toastAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
   
   // Ekran her focus olduğunda params'ı kontrol et ve form alanlarını doldur
   useFocusEffect(
@@ -168,16 +203,45 @@ export default function TransactionScreen({ route, navigation }) {
       return;
     }
 
-    if (!selectedAssetInfo) {
-      Alert.alert('Uyarı', 'Varlık bilgisi bulunamadı. Lütfen arama yaparak varlık seçin.');
-      return;
+    // Eğer varlık bilgisi yoksa otomatik arama yap
+    let assetInfo = selectedAssetInfo;
+    if (!assetInfo) {
+      console.log('⚠️ Varlık bilgisi yok, otomatik arama yapılıyor...');
+      
+      try {
+        // Kategori bazlı arama yap
+        const results = await searchAssets(assetName, mainCategory);
+        
+        if (results && results.length > 0) {
+          // İlk sonucu otomatik seç
+          assetInfo = {
+            symbol: results[0].symbol,
+            provider: results[0].provider,
+            id: results[0].id,
+            currency: results[0].currency,
+            category: results[0].category,
+            fullName: results[0].assetName
+          };
+          
+          // Sonraki kullanımlar için kaydet
+          setSelectedAssetInfo(assetInfo);
+          
+          console.log('✅ Otomatik varlık bulundu:', assetInfo);
+        } else {
+          Alert.alert('Uyarı', 'Varlık bulunamadı. Lütfen doğru ismi girin veya kategorisini kontrol edin.');
+          return;
+        }
+      } catch (error) {
+        Alert.alert('Hata', 'Varlık ararken hata oluştu');
+        return;
+      }
     }
 
     try {
       setIsFetchingPrice(true);
       
-      // API'den fiyat çek
-      const priceData = await fetchAssetPrice(assetName, { apiMapping: selectedAssetInfo });
+      // API'den fiyat çek (assetSearchService'den gelen tüm bilgiyi gönder)
+      const priceData = await fetchAssetPrice(assetName, assetInfo);
       
       if (priceData && priceData.price > 0) {
         // Fiyatı forma doldur (sessizce)
@@ -227,13 +291,18 @@ export default function TransactionScreen({ route, navigation }) {
     return true;
   };
 
-  // Form submit with transaction type
-  const handleSubmit = (transactionType) => {
+  // Form submit with transaction type - ASYNC ile tam doğru timing
+  const handleSubmit = async (transactionType) => {
     if (!validateForm()) return;
 
     const transaction = {
       mainCategory,
       assetName: assetName.trim(),
+      // Dinamik algılama için tüm API bilgisini sakla
+      symbol: selectedAssetInfo?.symbol || null,
+      provider: selectedAssetInfo?.provider || null,
+      apiId: selectedAssetInfo?.id || null, // CoinGecko ID, Yahoo symbol, vb.
+      apiCurrency: selectedAssetInfo?.currency || null,
       type: transactionType,
       quantity: parseFloat(quantity),
       unitPrice: parseFloat(unitPrice),
@@ -242,41 +311,37 @@ export default function TransactionScreen({ route, navigation }) {
       date: new Date().toISOString(),
     };
 
-    addTransaction(transaction);
-
-    // Form temizle
-    resetForm();
-
-    // Profesyonel başarı mesajı
-    const totalAmount = (parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+    console.log('💾 Transaction kaydediliyor:', {
+      assetName: transaction.assetName,
+      symbol: transaction.symbol,
+      provider: transaction.provider,
+      apiId: transaction.apiId,
+      mainCategory: transaction.mainCategory
     });
 
-    Alert.alert(
-      transactionType === 'buy' ? '✅ Alış İşlemi Başarılı' : '✅ Satış İşlemi Başarılı',
-      `İşlem portföyünüze kaydedildi.\n\n` +
-      `📦 Varlık: ${assetName}\n` +
-      `📊 Miktar: ${quantity} adet\n` +
-      `💰 Birim Fiyat: ${parseFloat(unitPrice).toLocaleString('tr-TR')} ${currency}\n` +
-      `💵 Toplam Tutar: ${totalAmount} ${currency}`,
-      [
-        { 
-          text: '✓ Tamam',
-          style: 'default'
-        }
-      ],
-      { cancelable: false }
-    );
+    // AsyncStorage'a kaydedilene kadar BEKLE
+    const success = await addTransaction(transaction);
+
+    if (success) {
+      // Form temizle (kategori korunur)
+      resetForm();
+
+      // Toast bildirim göster - Artık kesin kaydedildi!
+      showToast('İşlem gerçekleştirildi', transactionType === 'buy' ? 'success' : 'error');
+    } else {
+      // Hata durumu
+      Alert.alert('Hata', 'İşlem kaydedilemedi. Lütfen tekrar deneyin.');
+    }
   };
 
-  // Form reset
+  // Form reset - Ana kategoriyi KORU
   const resetForm = () => {
-    setMainCategory('');
+    // setMainCategory(''); // ❌ KALDIRILDI - Kategori korunsun
     setAssetName('');
     setQuantity('');
     setUnitPrice('');
     setNote('');
+    setSelectedAssetInfo(null); // API mapping'i temizle
   };
 
   // Handle buy button
@@ -333,12 +398,9 @@ export default function TransactionScreen({ route, navigation }) {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-          {/* Header */}
+          {/* Header - Compact */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>💼 Yeni İşlem</Text>
-            <Text style={styles.headerSubtitle}>
-              Varlık ekleyin, portföyünüzü güçlendirin
-            </Text>
           </View>
 
           {/* Ana Kategori */}
@@ -538,17 +600,18 @@ export default function TransactionScreen({ route, navigation }) {
             </View>
           </View>
 
-          {/* Not */}
+          {/* Not - Optimize edilmiş */}
           <View style={styles.section}>
-            <Text style={styles.label}>📝 Not Ekleyin (İsteğe Bağlı)</Text>
+            <Text style={styles.label}>📝 Not (Opsiyonel)</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="İşlem detaylarını yazabilirsiniz..."
+              style={[styles.input, styles.textAreaCompact]}
+              placeholder="Detay ekle..."
               placeholderTextColor={COLORS.mediumGray}
               value={note}
               onChangeText={setNote}
               multiline
-              numberOfLines={3}
+              numberOfLines={2}
+              maxLength={100}
               autoCorrect={true}
               autoCapitalize="sentences"
               returnKeyType="done"
@@ -569,7 +632,8 @@ export default function TransactionScreen({ route, navigation }) {
             </View>
           )}
 
-          <View style={{ height: 20 }} />
+          {/* Sabit butonların arkasında kalmaması için boşluk */}
+          <View style={{ height: 120 }} />
         </ScrollView>
         </TouchableWithoutFeedback>
 
@@ -589,6 +653,31 @@ export default function TransactionScreen({ route, navigation }) {
           </View>
         </View>
       </KeyboardAvoidingView>
+      
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toastContainer,
+            {
+              transform: [{
+                translateY: toastAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [100, 0]
+                })
+              }],
+              opacity: toastAnim
+            }
+          ]}
+        >
+          <View style={[
+            styles.toast,
+            toastType === 'success' ? styles.toastSuccess : styles.toastError
+          ]}>
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -616,26 +705,20 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
+    padding: SCREEN_WIDTH * 0.05, // Responsive padding (%5 of screen width)
+    paddingBottom: SCREEN_HEIGHT * 0.18, // Responsive bottom padding (%18 of screen height)
   },
   header: {
-    marginBottom: 24,
+    marginBottom: SCREEN_HEIGHT * 0.015, // Responsive (küçük ekranlarda küçülür)
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: SCREEN_WIDTH * 0.07, // Responsive font size (%7 of screen width)
     fontWeight: '800',
     color: COLORS.text,
-    marginBottom: 6,
     letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    fontSize: 15,
-    color: COLORS.mediumGray,
-    fontWeight: '400',
-  },
   section: {
-    marginBottom: 24,
+    marginBottom: SCREEN_HEIGHT * 0.022, // Responsive margin
   },
   label: {
     fontSize: 15,
@@ -710,6 +793,11 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
+  textAreaCompact: {
+    height: SCREEN_HEIGHT * 0.08, // Responsive height (%8 of screen height)
+    textAlignVertical: 'top',
+    fontSize: 14,
+  },
   row: {
     flexDirection: 'row',
     gap: 12,
@@ -723,26 +811,26 @@ const styles = StyleSheet.create({
   },
   totalContainer: {
     backgroundColor: COLORS.lightGray,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04, // Responsive padding
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: SCREEN_HEIGHT * 0.02, // Alt kısımdan boşluk
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   totalLabel: {
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.038, // Responsive font
     color: COLORS.text,
     fontWeight: '700',
     marginBottom: 4,
   },
   totalHint: {
-    fontSize: 12,
+    fontSize: SCREEN_WIDTH * 0.03, // Responsive font
     color: COLORS.mediumGray,
     fontWeight: '400',
   },
   totalValue: {
-    fontSize: 24,
+    fontSize: SCREEN_WIDTH * 0.06, // Responsive font
     fontWeight: 'bold',
     color: COLORS.primary,
   },
@@ -862,5 +950,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.mediumGray,
     fontWeight: '500',
+  },
+  // Toast notification
+  toastContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    paddingHorizontal: 16,
+    paddingBottom: 80, // Tab bar'ın üstünde
+  },
+  toast: {
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastSuccess: {
+    backgroundColor: COLORS.success, // Yeşil arka plan
+  },
+  toastError: {
+    backgroundColor: COLORS.danger, // Kırmızı arka plan
+  },
+  toastText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
+    textAlign: 'center',
   },
 });

@@ -24,7 +24,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EXCHANGE_RATES } from '../constants/theme';
 import { STORAGE_KEYS, CATEGORIES } from '../constants/storage.constants';
 import { validateTransaction, handleError } from '../utils';
-import { getAssetMapping } from '../constants/apiMapping';
 
 // Context oluştur
 const PortfolioContext = createContext();
@@ -65,12 +64,13 @@ export function PortfolioProvider({ children }) {
     loadData();
   }, []);
 
-  // Veriler değişince otomatik kaydet
+  // Veriler değişince otomatik kaydet (SADECE activePortfolioId, categories, displayCurrency için)
+  // portfolios artık addTransaction içinde manuel kaydediliyor
   useEffect(() => {
     if (!loading) {
       saveData();
     }
-  }, [portfolios, activePortfolioId, categories, displayCurrency]);
+  }, [activePortfolioId, categories, displayCurrency]);
 
   /**
    * AsyncStorage'dan verileri yükle
@@ -165,69 +165,51 @@ export function PortfolioProvider({ children }) {
       console.log('💾 Veriler AsyncStorage\'a kaydedildi');
     } catch (error) {
       console.error('❌ Veri kaydetme hatası:', error);
+      throw error; // Hatayı yukarı fırlat
     }
   };
 
   /**
-   * Yeni işlem ekle (aktif portföye)
+   * Yeni işlem ekle (aktif portföye) - AsyncStorage'a kaydet
    * @param {Object} transaction - İşlem verisi
+   * @returns {Promise<boolean>} - Başarılı ise true, hata varsa false
    */
-  const addTransaction = (transaction) => {
-    // API mapping bilgisini otomatik ekle
-    let apiMapping = transaction.apiMapping;
-    
-    if (!apiMapping) {
-      // Statik mapping'den bul
-      apiMapping = getAssetMapping(transaction.assetName);
-      
-      // Bulamazsa dinamik olarak tahmin et
-      if (!apiMapping) {
-        const symbolMatch = transaction.assetName.match(/\(([^)]+)\)/);
-        const symbol = symbolMatch ? symbolMatch[1] : transaction.assetName;
-        
-        // Hisse senedi kontrolü
-        if (symbol.includes('.IS')) {
-          apiMapping = {
-            symbol,
-            provider: 'yahoo',
-            id: symbol,
-            currency: 'TRY',
-            category: transaction.mainCategory || 'Borsa'
-          };
-        }
-        // Kripto para varsayımı
-        else if (symbol.length >= 2 && symbol.length <= 5) {
-          apiMapping = {
-            symbol,
-            provider: 'coingecko',
-            id: symbol.toLowerCase(),
-            currency: 'USD',
-            category: transaction.mainCategory || 'Kripto'
-          };
-        }
-      }
+  const addTransaction = async (transaction) => {
+    try {
+      // apiMapping artık kaydedilmiyor - priceService.js her zaman dinamik algılar
+      const newTransaction = {
+        id: Date.now().toString(),
+        ...transaction,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedPortfolios = portfolios.map(portfolio => 
+        portfolio.id === activePortfolioId
+          ? { ...portfolio, transactions: [newTransaction, ...portfolio.transactions] }
+          : portfolio
+      );
+
+      // Önce state'i güncelle
+      setPortfolios(updatedPortfolios);
+
+      // Sonra AsyncStorage'a kaydet
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PORTFOLIOS,
+        JSON.stringify(updatedPortfolios)
+      );
+
+      console.log('➕ Yeni işlem eklendi ve kaydedildi:', {
+        type: newTransaction.type,
+        assetName: newTransaction.assetName,
+        quantity: newTransaction.quantity,
+        unitPrice: newTransaction.unitPrice,
+      });
+
+      return true; // Başarılı
+    } catch (error) {
+      console.error('❌ İşlem ekleme hatası:', error);
+      return false; // Hata
     }
-    
-    const newTransaction = {
-      id: Date.now().toString(),
-      ...transaction,
-      apiMapping, // API bilgisini ekle
-      createdAt: new Date().toISOString(),
-    };
-
-    setPortfolios(prev => prev.map(portfolio => 
-      portfolio.id === activePortfolioId
-        ? { ...portfolio, transactions: [newTransaction, ...portfolio.transactions] }
-        : portfolio
-    ));
-
-    console.log('➕ Yeni işlem eklendi:', {
-      type: newTransaction.type,
-      assetName: newTransaction.assetName,
-      quantity: newTransaction.quantity,
-      unitPrice: newTransaction.unitPrice,
-      apiMapping: newTransaction.apiMapping,
-    });
   };
 
   /**

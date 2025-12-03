@@ -234,10 +234,10 @@ export const searchAllAssets = async (searchTerm, category = '') => {
     if (!category || category === 'Altın') {
       // Altın araması - basit statik liste
       const goldAssets = [
-        { assetName: 'Gram Altın', symbol: 'XAU', provider: 'metals', id: 'gold_gram', currency: 'TRY', category: 'Altın', fullName: 'Gram Altın', ticker: 'XAU' },
-        { assetName: 'Çeyrek Altın', symbol: 'XAU_QUARTER', provider: 'metals', id: 'gold_quarter', currency: 'TRY', category: 'Altın', fullName: 'Çeyrek Altın', ticker: 'XAU_QUARTER' },
-        { assetName: 'Yarım Altın', symbol: 'XAU_HALF', provider: 'metals', id: 'gold_half', currency: 'TRY', category: 'Altın', fullName: 'Yarım Altın', ticker: 'XAU_HALF' },
-        { assetName: 'Tam Altın', symbol: 'XAU_FULL', provider: 'metals', id: 'gold_full', currency: 'TRY', category: 'Altın', fullName: 'Tam Altın', ticker: 'XAU_FULL' }
+        { assetName: 'Gram Altın', symbol: 'XAU', provider: 'metals', id: 'gold', currency: 'TRY', category: 'Altın', fullName: 'Gram Altın', ticker: 'XAU' },
+        { assetName: 'Çeyrek Altın', symbol: 'XAU_QUARTER', provider: 'metals', id: 'gold-quarter', currency: 'TRY', category: 'Altın', fullName: 'Çeyrek Altın', ticker: 'XAU_QUARTER' },
+        { assetName: 'Yarım Altın', symbol: 'XAU_HALF', provider: 'metals', id: 'gold-half', currency: 'TRY', category: 'Altın', fullName: 'Yarım Altın', ticker: 'XAU_HALF' },
+        { assetName: 'Tam Altın', symbol: 'XAU_FULL', provider: 'metals', id: 'gold-republic', currency: 'TRY', category: 'Altın', fullName: 'Tam Altın', ticker: 'XAU_FULL' }
       ];
       const goldMatches = goldAssets.filter(g => 
         g.assetName.toLowerCase().includes(searchTerm.toLowerCase())

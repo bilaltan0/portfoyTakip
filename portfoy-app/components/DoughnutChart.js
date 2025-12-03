@@ -24,8 +24,10 @@ export default function DoughnutChart({
   // Her segment için başlangıç ve bitiş açılarını hesapla
   let currentAngle = 0;
   const segments = data.map((item) => {
-    const segmentAngle = (item.percentage / 100) * 360;
-    const segmentLength = (item.percentage / 100) * circumference;
+    // exactPercentage varsa onu kullan (daha hassas), yoksa percentage
+    const percent = item.exactPercentage !== undefined ? item.exactPercentage : item.percentage;
+    const segmentAngle = (percent / 100) * 360;
+    const segmentLength = (percent / 100) * circumference;
     
     const segment = {
       ...item,
