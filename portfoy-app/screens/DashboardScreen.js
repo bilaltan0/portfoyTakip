@@ -41,8 +41,8 @@
  * İleride ayrı ekranlar olacak (Stack Navigator ile).
  */
 
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
@@ -56,21 +56,43 @@ import QuickViewCard from '../components/QuickViewCard';
 import AssetDetailCard from '../components/AssetDetailCard';
 import DoughnutChart from '../components/DoughnutChart';
 import ChartLegend from '../components/ChartLegend';
+import ProfitLossCard from '../components/ProfitLossCard';
+import PortfolioValueHeader from '../components/PortfolioValueHeader';
+
+// Services
+import { clearPriceCache } from '../services/priceService';
+
+// Hooks
+import { useAssetPrices } from '../hooks/useAssetPrices';
+
+// Services
+import { getExchangeRates, convertToTRY, convertFromTRY } from '../services/exchangeRateService';
 
 // Utility fonksiyonları
 import { getQuantityLabel } from '../utils/assetUtils';
 import { getCategoryColor, generateColorForAsset } from '../utils/colorUtils';
 import { convertCurrency as convertCurrencyUtil, formatCurrency, getCurrencySymbol } from '../utils/currencyUtils';
+import { calculatePeriodProfitLoss } from '../utils/periodCalculations';
 
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
   const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
+  
+  // Döviz kurları state
+  const [exchangeRates, setExchangeRates] = useState(EXCHANGE_RATES); // Fallback olarak sabit kurlar
   
   // Para birimi seçici modal state
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   
   // Kategori drill-down state
   const [selectedCategory, setSelectedCategory] = useState(null);
+  
+  // Period state (1D, 1W, 1M, 1Y, ALL)
+  const [selectedPeriod, setSelectedPeriod] = useState('ALL');
+  const [periodProfitLoss, setPeriodProfitLoss] = useState({
+    profitLoss: 0,
+    profitLossPercentage: 0
+  });
 
   // Debug: Verileri temizle
   const handleClearData = () => {
@@ -91,108 +113,493 @@ export default function DashboardScreen({ navigation }) {
     );
   };
 
-  // Para birimi dönüştürme fonksiyonu
+  // Para birimi dönüştürme fonksiyonu (dinamik kurlar)
   const convertCurrency = (amountInTRY) => {
-    const rate = EXCHANGE_RATES[displayCurrency] || 1;
-    return amountInTRY / rate;
+    return convertFromTRY(amountInTRY, displayCurrency, exchangeRates);
   };
 
   // Para birimi sembolü
   const currencySymbol = CURRENCY_SYMBOLS[displayCurrency] || '₺';
 
-  // Toplam portföy değerini hesapla - overall'ı KULLAN (zaten hesaplanmış)
-  const totalPortfolioValueInTRY = totalValue.overall || 0;
+  // Döviz kurlarını yükle
+  useEffect(() => {
+    const loadExchangeRates = async () => {
+      try {
+        const rates = await getExchangeRates();
+        console.log('💱 Exchange rates loaded:', rates);
+        setExchangeRates(rates);
+      } catch (error) {
+        console.error('❌ Failed to load exchange rates:', error);
+        // EXCHANGE_RATES fallback zaten state'te var
+      }
+    };
+    
+    loadExchangeRates();
+  }, []); // Sadece ilk yüklemede
+
+  // Toplam portföy değerini hesapla - ANLIK FİYATLARDAN hesapla (maliyet değil!)
+  // Context'teki totalValue maliyet bazlı, biz anlık fiyat kullanacağız
+  const [totalPortfolioValueInTRY, setTotalPortfolioValueInTRY] = useState(0);
   const totalPortfolioValue = convertCurrency(totalPortfolioValueInTRY);
 
-  // Varlık dağılımı verilerini Context'ten hesapla - GERÇEK yüzde ile
+  // KAR/ZARAR HESAPLAMA SİSTEMİ
+  // 1. Tüm varlıkları ve API mapping bilgilerini topla
+  const [assetsForPricing, setAssetsForPricing] = useState([]);
+  const [profitLossData, setProfitLossData] = useState({
+    totalInvestment: 0,
+    currentValue: 0,
+    profitLoss: 0,
+    profitLossPercentage: 0
+  });
+
+  // Varlıkları hazırla (useAssetPrices için)
+  useEffect(() => {
+    const assetMap = {};
+    
+    transactions.forEach(tx => {
+      const key = `${tx.mainCategory}_${tx.assetName}`;
+      if (!assetMap[key]) {
+        assetMap[key] = {
+          name: tx.assetName,
+          symbol: tx.symbol || null,
+          category: tx.mainCategory,
+          mainCategory: tx.mainCategory, // Hem category hem mainCategory (uyumluluk)
+          quantity: 0,
+          totalCost: 0,
+          // ✅ FİYAT ÇEKME İÇİN GEREKLİ BİLGİLER
+          apiId: tx.apiId || null,
+          provider: tx.provider || null,
+          apiCurrency: tx.apiCurrency || null,
+        };
+      }
+      
+      // En güncel bilgileri kullan (transaction'da varsa)
+      if (tx.symbol && !assetMap[key].symbol) {
+        assetMap[key].symbol = tx.symbol;
+      }
+      if (tx.apiId && !assetMap[key].apiId) {
+        assetMap[key].apiId = tx.apiId;
+      }
+      if (tx.provider && !assetMap[key].provider) {
+        assetMap[key].provider = tx.provider;
+      }
+      if (tx.apiCurrency && !assetMap[key].apiCurrency) {
+        assetMap[key].apiCurrency = tx.apiCurrency;
+      }
+      
+      const multiplier = tx.type === 'buy' ? 1 : -1;
+      assetMap[key].quantity += tx.quantity * multiplier;
+      
+      // Toplam maliyet hesapla (TRY cinsine çevirerek - dinamik kurlarla)
+      const txCurrency = tx.currency || 'TRY';
+      const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
+      assetMap[key].totalCost += costInTRY * multiplier;
+    });
+    
+    // Sadece pozitif miktar olanları al (apiMapping kontrolü yok!)
+    const assets = Object.values(assetMap)
+      .filter(asset => asset.quantity > 0);
+    
+    console.log('🔍 AssetsForPricing:', assets.map(a => ({
+      name: a.name,
+      category: a.category,
+      quantity: a.quantity,
+      totalCost: a.totalCost.toFixed(2),
+      apiId: a.apiId,
+      provider: a.provider
+    })));
+    
+    setAssetsForPricing(assets);
+  }, [transactions, exchangeRates]); // exchangeRates değişince yeniden hesapla
+
+  // Anlık fiyatları çek
+  const { prices, loading: pricesLoading, error: pricesError, refresh: refreshPricesOnly } = useAssetPrices(assetsForPricing);
+  
+  // Refresh fonksiyonu: Cache temizle, döviz kurlarını ve fiyatları yenile
+  const refreshPrices = async () => {
+    try {
+      // 0. Önce cache'i temizle (eski 0 değerlerini kaldır)
+      console.log('🗑️ Cache temizleniyor...');
+      await clearPriceCache();
+      
+      // 1. Döviz kurlarını yenile
+      const rates = await getExchangeRates();
+      setExchangeRates(rates);
+      console.log('💱 Exchange rates refreshed:', rates);
+      
+      // 2. Fiyatları yenile (cache temiz, API'den çekecek)
+      refreshPricesOnly();
+    } catch (error) {
+      console.error('❌ Refresh failed:', error);
+      // Sadece fiyatları yenile (kurlar fallback'te kalır)
+      refreshPricesOnly();
+    }
+  };
+  
+  // Debug: Prices objesini logla
+  useEffect(() => {
+    console.log('💰 PRICES OBJESI:', JSON.stringify(prices, null, 2));
+  }, [prices]);
+
+  // Kar/zarar VE toplam portföy değerini hesapla (ANLIK FİYATLARA GÖRE)
+  useEffect(() => {
+    if (Object.keys(prices).length === 0 || assetsForPricing.length === 0) {
+      // Eğer fiyat yoksa, sadece yatırım tutarını göster
+      const totalInvestmentInTRY = assetsForPricing.reduce((sum, asset) => sum + asset.totalCost, 0);
+      setTotalPortfolioValueInTRY(totalInvestmentInTRY); // Toplam değer = maliyet
+      setProfitLossData({
+        totalInvestment: convertCurrency(totalInvestmentInTRY),
+        currentValue: convertCurrency(totalInvestmentInTRY),
+        profitLoss: 0,
+        profitLossPercentage: 0
+      });
+      setPeriodProfitLoss({
+        profitLoss: 0,
+        profitLossPercentage: 0
+      });
+      return;
+    }
+
+    let totalInvestmentInTRY = 0;
+    let currentValueInTRY = 0;
+
+    assetsForPricing.forEach(asset => {
+      // Toplam yatırım (maliyet)
+      totalInvestmentInTRY += asset.totalCost;
+
+      // Güncel değer hesapla (ANLIK FİYAT KULLAN!)
+      const priceData = prices[asset.name];
+      if (priceData && priceData.price > 0) {
+        const priceCurrency = priceData.currency || 'TRY';
+        // ✅ Dinamik döviz kurlarını kullan (USD/EUR/GBP → TRY)
+        const currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        currentValueInTRY += asset.quantity * currentPriceInTRY;
+        
+        console.log(`📊 ${asset.name}: ${asset.quantity} × ${priceData.price} ${priceCurrency} (${exchangeRates[priceCurrency]} TRY) = ${asset.quantity * currentPriceInTRY} TRY`);
+      } else {
+        // Fiyat yoksa maliyet fiyatını kullan (fallback)
+        currentValueInTRY += asset.totalCost;
+        console.log(`⚠️ ${asset.name}: Fiyat yok, maliyet kullanıldı = ${asset.totalCost} TRY`);
+      }
+    });
+
+    console.log(`💰 TOPLAM: Maliyet=${totalInvestmentInTRY} TRY, Güncel Değer=${currentValueInTRY} TRY`);
+
+    // Toplam portföy değerini güncelle (ANLIK FİYATA GÖRE!)
+    setTotalPortfolioValueInTRY(currentValueInTRY);
+
+    const profitLossInTRY = currentValueInTRY - totalInvestmentInTRY;
+    const profitLossPerc = totalInvestmentInTRY > 0 
+      ? (profitLossInTRY / totalInvestmentInTRY) * 100 
+      : 0;
+
+    setProfitLossData({
+      totalInvestment: convertCurrency(totalInvestmentInTRY),
+      currentValue: convertCurrency(currentValueInTRY),
+      profitLoss: convertCurrency(profitLossInTRY),
+      profitLossPercentage: profitLossPerc
+    });
+
+    // Period bazlı kar/zarar için de aynı mantığı kullan
+    setPeriodProfitLoss({
+      profitLoss: convertCurrency(profitLossInTRY),
+      profitLossPercentage: profitLossPerc
+    });
+
+    console.log(`📈 KAR/ZARAR: ${profitLossInTRY > 0 ? '+' : ''}${profitLossInTRY.toFixed(2)} TRY (${profitLossPerc > 0 ? '+' : ''}${profitLossPerc.toFixed(2)}%)`);
+  }, [prices, assetsForPricing, displayCurrency, selectedPeriod, transactions, exchangeRates]);
+
+  // Varlık dağılımı verilerini ANLIK FİYATLARA GÖRE hesapla
+  const getCategoryValues = () => {
+    const categoryTotals = {
+      'Altın': 0,
+      'Kripto': 0,
+      'Borsa': 0,
+      'Döviz': 0,
+    };
+
+    assetsForPricing.forEach(asset => {
+      const priceData = prices[asset.name];
+      let valueInTRY = 0;
+
+      if (priceData && priceData.price > 0 && !priceData.error) {
+        const priceCurrency = priceData.currency || 'TRY';
+        // ✅ Dinamik kurları kullan
+        const currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        valueInTRY = asset.quantity * currentPriceInTRY;
+      } else {
+        valueInTRY = asset.totalCost;
+      }
+
+      if (categoryTotals[asset.category] !== undefined) {
+        categoryTotals[asset.category] += valueInTRY;
+      }
+    });
+
+    return categoryTotals;
+  };
+
+  const categoryValues = getCategoryValues();
+  
   const rawDistribution = [
     { 
       name: 'Altın', 
-      value: convertCurrency(totalValue['Altın'] || 0),
+      value: convertCurrency(categoryValues['Altın']),
       color: getCategoryColor('Altın')
     },
     { 
       name: 'Kripto', 
-      value: convertCurrency(totalValue['Kripto'] || 0),
+      value: convertCurrency(categoryValues['Kripto']),
       color: getCategoryColor('Kripto')
     },
     { 
       name: 'Borsa', 
-      value: convertCurrency(totalValue['Borsa'] || 0),
+      value: convertCurrency(categoryValues['Borsa']),
       color: getCategoryColor('Borsa')
     },
     { 
       name: 'Döviz', 
-      value: convertCurrency(totalValue['Döviz'] || 0),
+      value: convertCurrency(categoryValues['Döviz']),
       color: getCategoryColor('Döviz')
     },
   ].filter(item => item.value > 0);
 
-  // Yüzdeleri hesapla - GERÇEK yüzde (100'e tam ulaşması için)
+  // Yüzdeleri hesapla - ondalıklı hassas gösterim
   const portfolioDistribution = rawDistribution.map((item, index, arr) => {
-    if (index === arr.length - 1) {
-      // Son eleman için kalan yüzdeyi ver (100'e tam ulaşsın)
-      const othersTotal = arr.slice(0, -1).reduce((sum, i) => 
-        sum + Math.round((i.value / totalPortfolioValue) * 100), 0
-      );
-      return {
-        ...item,
-        percentage: 100 - othersTotal,
-        exactPercentage: (item.value / totalPortfolioValue) * 100
-      };
-    }
+    const exactPercentage = (item.value / totalPortfolioValue) * 100;
+    
     return {
       ...item,
-      percentage: Math.round((item.value / totalPortfolioValue) * 100),
-      exactPercentage: (item.value / totalPortfolioValue) * 100
+      percentage: Math.round(exactPercentage), // Yuvarlanmış hali (eski uyumluluk için)
+      exactPercentage: exactPercentage // Hassas ondalıklı değer
     };
   });
 
-  // Kategori detay dağılımını hesapla (drill-down için)
-  const getCategoryDetail = (categoryName) => {
-    if (!categoryName) return [];
-    
-    // Bu kategoriye ait tüm varlıkları topla
+  // ========================================
+  // KATEGORİ DETAY FONKSİYONLARI (Her kategori için ayrı)
+  // ========================================
+  
+  /**
+   * Ortak yardımcı fonksiyon: Varlık listesini toplar ve işler
+   */
+  const collectCategoryAssets = (categoryName) => {
     const categoryAssets = {};
     transactions.forEach(tx => {
       if (tx.mainCategory === categoryName) {
         const assetKey = tx.assetName;
         if (!categoryAssets[assetKey]) {
           categoryAssets[assetKey] = {
-            totalValue: 0,
             totalQuantity: 0,
-            transactions: []
+            totalCostInTRY: 0,
+            transactions: [],
+            symbol: tx.symbol || null, // Symbol bilgisini sakla
           };
         }
         
-        // Alış/satış işlemlerini hesaba kat
+        // En güncel symbol'ü kullan
+        if (tx.symbol && !categoryAssets[assetKey].symbol) {
+          categoryAssets[assetKey].symbol = tx.symbol;
+        }
+        
         const multiplier = tx.type === 'buy' ? 1 : -1;
-        categoryAssets[assetKey].totalValue += (tx.quantity * tx.unitPrice) * multiplier;
         categoryAssets[assetKey].totalQuantity += tx.quantity * multiplier;
+        
+        const txCurrency = tx.currency || 'TRY';
+        const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
+        categoryAssets[assetKey].totalCostInTRY += costInTRY * multiplier;
+        
         categoryAssets[assetKey].transactions.push(tx);
       }
     });
     
-    // Array'e çevir ve pozitif değerleri filtrele
-    const assetArray = Object.entries(categoryAssets)
-      .filter(([_, data]) => data.totalValue > 0)
-      .map(([name, data]) => {
-        // Ortalama alış fiyatı hesapla (sadece buy işlemlerinden)
-        const buyTransactions = data.transactions.filter(tx => tx.type === 'buy');
-        const totalBuyValue = buyTransactions.reduce((sum, tx) => sum + (tx.quantity * tx.unitPrice), 0);
-        const totalBuyQuantity = buyTransactions.reduce((sum, tx) => sum + tx.quantity, 0);
-        const avgPrice = totalBuyQuantity > 0 ? totalBuyValue / totalBuyQuantity : 0;
-        
-        return {
-          name: name.includes('(') ? name.split('(')[0].trim() : name,
-          fullName: name,
-          value: convertCurrency(data.totalValue),
-          quantity: data.totalQuantity,
-          avgPrice: convertCurrency(avgPrice),
-          color: generateColorForAsset(name),
-          quantityLabel: getQuantityLabel(name, categoryName)
-        };
-      });
+    return Object.entries(categoryAssets).filter(([_, data]) => data.totalQuantity > 0);
+  };
+
+  /**
+   * KRİPTO kategorisi için detay hesaplama
+   */
+  const getCryptoDetail = () => {
+    const assets = collectCategoryAssets('Kripto');
+    
+    return assets.map(([name, data]) => {
+      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      
+      // Kripto için prices objesinde ara
+      const priceData = prices[name];
+      let currentPriceInTRY = null;
+      let hasLivePrice = false;
+      let currentValueInTRY = data.totalCostInTRY;
+      
+      if (priceData && priceData.price > 0 && !priceData.error) {
+        const priceCurrency = priceData.currency || 'USD';
+        currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+        hasLivePrice = true;
+        console.log(`✅ CRYPTO ${name}: ${priceData.price} ${priceCurrency} → ${currentPriceInTRY.toFixed(2)} TRY`);
+      } else {
+        console.log(`⚠️ CRYPTO ${name}: Fiyat bulunamadı, maliyet kullanıldı`);
+      }
+      
+      return {
+        name: name.includes('(') ? name.split('(')[0].trim() : name,
+        fullName: name,
+        symbol: data.symbol || null, // Symbol ekle
+        value: convertCurrency(currentValueInTRY),
+        quantity: data.totalQuantity,
+        avgPrice: convertCurrency(avgCostInTRY),
+        currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
+        hasLivePrice,
+        color: generateColorForAsset(name),
+        quantityLabel: 'Miktar',
+      };
+    });
+  };
+
+  /**
+   * ALTIN kategorisi için detay hesaplama
+   */
+  const getGoldDetail = () => {
+    const assets = collectCategoryAssets('Altın');
+    
+    return assets.map(([name, data]) => {
+      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      
+      // Altın için prices objesinde ara
+      const priceData = prices[name];
+      let currentPriceInTRY = null;
+      let hasLivePrice = false;
+      let currentValueInTRY = data.totalCostInTRY;
+      
+      if (priceData && priceData.price > 0 && !priceData.error) {
+        const priceCurrency = priceData.currency || 'TRY';
+        currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+        hasLivePrice = true;
+        console.log(`✅ GOLD ${name}: ${priceData.price} ${priceCurrency} → ${currentPriceInTRY.toFixed(2)} TRY`);
+      } else {
+        console.log(`⚠️ GOLD ${name}: Fiyat bulunamadı, maliyet kullanıldı`);
+      }
+      
+      return {
+        name: name.includes('(') ? name.split('(')[0].trim() : name,
+        fullName: name,
+        symbol: data.symbol || null, // Symbol ekle
+        value: convertCurrency(currentValueInTRY),
+        quantity: data.totalQuantity,
+        avgPrice: convertCurrency(avgCostInTRY),
+        currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
+        hasLivePrice,
+        color: generateColorForAsset(name),
+        quantityLabel: 'Adet',
+      };
+    });
+  };
+
+  /**
+   * BORSA kategorisi için detay hesaplama
+   */
+  const getStockDetail = () => {
+    const assets = collectCategoryAssets('Borsa');
+    
+    return assets.map(([name, data]) => {
+      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      
+      // Borsa için prices objesinde ara
+      const priceData = prices[name];
+      let currentPriceInTRY = null;
+      let hasLivePrice = false;
+      let currentValueInTRY = data.totalCostInTRY;
+      
+      if (priceData && priceData.price > 0 && !priceData.error) {
+        const priceCurrency = priceData.currency || 'TRY';
+        currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+        hasLivePrice = true;
+        console.log(`✅ STOCK ${name}: ${priceData.price} ${priceCurrency} → ${currentPriceInTRY.toFixed(2)} TRY`);
+      } else {
+        console.log(`⚠️ STOCK ${name}: Fiyat bulunamadı, maliyet kullanıldı`);
+      }
+      
+      return {
+        name: name.includes('(') ? name.split('(')[0].trim() : name,
+        fullName: name,
+        symbol: data.symbol || null,
+        value: convertCurrency(currentValueInTRY),
+        quantity: data.totalQuantity,
+        avgPrice: convertCurrency(avgCostInTRY),
+        currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
+        hasLivePrice,
+        color: generateColorForAsset(name),
+        quantityLabel: 'Adet',
+      };
+    });
+  };
+
+  /**
+   * DÖVİZ kategorisi için detay hesaplama
+   */
+  const getForexDetail = () => {
+    const assets = collectCategoryAssets('Döviz');
+    
+    return assets.map(([name, data]) => {
+      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      
+      // Döviz için prices objesinde ara
+      const priceData = prices[name];
+      let currentPriceInTRY = null;
+      let hasLivePrice = false;
+      let currentValueInTRY = data.totalCostInTRY;
+      
+      if (priceData && priceData.price > 0 && !priceData.error) {
+        const priceCurrency = priceData.currency || 'TRY';
+        currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+        hasLivePrice = true;
+        console.log(`✅ FOREX ${name}: ${priceData.price} ${priceCurrency} → ${currentPriceInTRY.toFixed(2)} TRY`);
+      } else {
+        console.log(`⚠️ FOREX ${name}: Fiyat bulunamadı, maliyet kullanıldı`);
+      }
+      
+      return {
+        name: name.includes('(') ? name.split('(')[0].trim() : name,
+        fullName: name,
+        symbol: data.symbol || null,
+        value: convertCurrency(currentValueInTRY),
+        quantity: data.totalQuantity,
+        avgPrice: convertCurrency(avgCostInTRY),
+        currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
+        hasLivePrice,
+        color: generateColorForAsset(name),
+        quantityLabel: 'Miktar',
+      };
+    });
+  };
+
+  /**
+   * Ana kategori detay fonksiyonu - Kategoriye göre doğru fonksiyonu çağırır
+   */
+  const getCategoryDetail = (categoryName) => {
+    if (!categoryName) return [];
+    
+    let assetArray = [];
+    
+    switch (categoryName) {
+      case 'Kripto':
+        assetArray = getCryptoDetail();
+        break;
+      case 'Altın':
+        assetArray = getGoldDetail();
+        break;
+      case 'Borsa':
+        assetArray = getStockDetail();
+        break;
+      case 'Döviz':
+        assetArray = getForexDetail();
+        break;
+      default:
+        console.warn(`⚠️ Bilinmeyen kategori: ${categoryName}`);
+        return [];
+    }
     
     // Toplam değere göre büyükten küçüğe sırala
     assetArray.sort((a, b) => b.value - a.value);
@@ -200,22 +607,14 @@ export default function DashboardScreen({ navigation }) {
     // Toplam değer
     const categoryTotal = assetArray.reduce((sum, item) => sum + item.value, 0);
     
-    // Yüzdeleri hesapla
-    return assetArray.map((item, index, arr) => {
-      if (index === arr.length - 1) {
-        const othersTotal = arr.slice(0, -1).reduce((sum, i) => 
-          sum + Math.round((i.value / categoryTotal) * 100), 0
-        );
-        return {
-          ...item,
-          percentage: 100 - othersTotal,
-          exactPercentage: (item.value / categoryTotal) * 100
-        };
-      }
+    // Yüzdeleri hesapla - ondalıklı hassas gösterim
+    return assetArray.map((item) => {
+      const exactPercentage = categoryTotal > 0 ? (item.value / categoryTotal) * 100 : 0;
+      
       return {
         ...item,
-        percentage: Math.round((item.value / categoryTotal) * 100),
-        exactPercentage: (item.value / categoryTotal) * 100
+        percentage: Math.round(exactPercentage), // Yuvarlanmış hali (eski uyumluluk için)
+        exactPercentage: exactPercentage // Hassas ondalıklı değer
       };
     });
   };
@@ -256,14 +655,36 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Portfolio Summary */}
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryValue}>
-            {currencySymbol}{totalPortfolioValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </Text>
-          <Text style={styles.summaryLabel}>Toplam Portföy Değeri</Text>
-        </View>
+      <ScrollView 
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={pricesLoading}
+            onRefresh={refreshPrices}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            title="Fiyatlar güncelleniyor..."
+            titleColor={COLORS.mediumGray}
+          />
+        }
+      >
+        {/* Portfolio Value Header - Modern Tasarım */}
+        <PortfolioValueHeader
+          totalValue={totalPortfolioValue}
+          currencySymbol={currencySymbol}
+          profitLoss={periodProfitLoss.profitLoss}
+          profitLossPercentage={periodProfitLoss.profitLossPercentage}
+          selectedPeriod={selectedPeriod}
+          onPeriodChange={setSelectedPeriod}
+        />
+
+        {/* Loading Indicator */}
+        {pricesLoading && (
+          <View style={styles.loadingBadgeCenter}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Fiyatlar güncelleniyor...</Text>
+          </View>
+        )}
 
         {/* Varlık Dağılımı Bölümü */}
         <View style={styles.assetDistributionSection}>
@@ -320,23 +741,35 @@ export default function DashboardScreen({ navigation }) {
           {selectedCategory ? (
             // Kategori seçiliyse: Varlık detay kartları
             displayDistribution.length > 0 ? (
-              displayDistribution.map((asset) => (
-                <AssetDetailCard
-                  key={asset.name}
-                  asset={asset}
-                  currencySymbol={currencySymbol}
-                  onPress={() => {
-                    // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
-                    navigation.navigate('İşlem Yap', {
-                      preselectedAsset: {
-                        mainCategory: selectedCategory,
-                        assetName: asset.fullName || asset.name,
-                        type: 'buy'
-                      }
-                    });
-                  }}
-                />
-              ))
+              displayDistribution.map((asset) => {
+                // Bu varlığın anlık fiyatını bul - fullName veya name ile dene
+                const priceData = prices[asset.fullName] || prices[asset.name];
+                
+                // currentPrice zaten getCategoryDetail'de hesaplanmış!
+                // Onu kullan, yoksa prices'tan al
+                let currentPrice = asset.currentPrice || null;
+                
+                console.log(`🎯 AssetDetailCard: ${asset.name}, currentPrice=${currentPrice}, priceData=`, priceData);
+
+                return (
+                  <AssetDetailCard
+                    key={asset.name}
+                    asset={asset}
+                    currencySymbol={currencySymbol}
+                    currentPrice={currentPrice}
+                    onPress={() => {
+                      // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
+                      navigation.navigate('İşlem Yap', {
+                        preselectedAsset: {
+                          mainCategory: selectedCategory,
+                          assetName: asset.fullName || asset.name,
+                          type: 'buy'
+                        }
+                      });
+                    }}
+                  />
+                );
+              })
             ) : (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyText}>Bu kategoride varlık yok</Text>
@@ -360,7 +793,7 @@ export default function DashboardScreen({ navigation }) {
                     icon={icon}
                     name={asset.name}
                     value={asset.value}
-                    change={asset.percentage}
+                    change={asset.exactPercentage ? asset.exactPercentage.toFixed(2) : asset.percentage}
                     color={asset.color}
                     currencySymbol={currencySymbol}
                     onPress={() => setSelectedCategory(asset.name)}
@@ -513,10 +946,23 @@ const styles = StyleSheet.create({
   scroll: {
     paddingBottom: 90,
   },
-  summaryBox: {
+  loadingBadgeCenter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    justifyContent: 'center',
+    marginTop: 12,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: `${COLORS.primary}15`,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  loadingText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginLeft: 8,
+    fontWeight: '600',
   },
   summaryValue: {
     fontSize: 32,
