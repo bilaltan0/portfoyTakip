@@ -26,7 +26,7 @@ export default function ChartLegend({ data = [] }) {
         return (
           <View key={`${item.name}-${index}`} style={styles.item}>
             <View style={[styles.dot, { backgroundColor: item.color }]} />
-            <Text style={styles.name}>{item.name || 'İsimsiz'}</Text>
+            <Text style={styles.name}>{item.symbol || item.name || 'İsimsiz'}</Text>
             <Text style={styles.percentage}>{displayPercentage}%</Text>
           </View>
         );
