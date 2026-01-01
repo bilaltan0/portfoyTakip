@@ -84,7 +84,7 @@ export default function AssetDetailCard({
         <Text style={styles.label}>Ort. Alış</Text>
         <Text style={styles.value}>
           {currencySymbol}{asset.avgPrice.toLocaleString('tr-TR', { 
-            maximumFractionDigits: 3,
+            maximumFractionDigits: 2,
             minimumFractionDigits: 2 
           })}
         </Text>
@@ -96,7 +96,7 @@ export default function AssetDetailCard({
           <Text style={styles.label}>Anlık Fiyat</Text>
           <Text style={[styles.value, { color: COLORS.primary }]}>
             {currencySymbol}{currentPrice.toLocaleString('tr-TR', { 
-              maximumFractionDigits: 3,
+              maximumFractionDigits: 2,
               minimumFractionDigits: 2 
             })}
           </Text>
@@ -107,8 +107,8 @@ export default function AssetDetailCard({
         <Text style={styles.label}>Toplam</Text>
         <Text style={[styles.value, styles.totalValue]}>
           {currencySymbol}{asset.value.toLocaleString('tr-TR', {
-            maximumFractionDigits: 3,
-            minimumFractionDigits: 2
+            maximumFractionDigits: 0,
+            minimumFractionDigits: 0
           })}
         </Text>
       </View>
@@ -121,8 +121,8 @@ export default function AssetDetailCard({
           </Text>
           <Text style={[styles.profitLossText, { color: plColor }]}>
             {plIcon} {plAmount >= 0 ? '+' : ''}{currencySymbol}{Math.abs(plAmount).toLocaleString('tr-TR', {
-              maximumFractionDigits: 3,
-              minimumFractionDigits: 2
+              maximumFractionDigits: 0,
+              minimumFractionDigits: 0
             })}
           </Text>
           <Text style={[styles.profitLossPercentage, { color: plColor }]}>

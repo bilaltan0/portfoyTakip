@@ -645,7 +645,7 @@ export default function TransactionScreen({ route, navigation }) {
                 <Text style={styles.totalHint}>{quantity} × {unitPrice} {currency}</Text>
               </View>
               <Text style={styles.totalValue}>
-                {(parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} {currency}
+                {(parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {currency}
               </Text>
             </View>
           )}

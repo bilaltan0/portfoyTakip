@@ -24,8 +24,8 @@ export default function PortfolioSummary({
       
       <Text style={styles.totalValue}>
         {formatCurrency(totalValue, 'TRY', { 
-          maximumFractionDigits: 2,
-          minimumFractionDigits: 2 
+          maximumFractionDigits: 0,
+          minimumFractionDigits: 0 
         })}
       </Text>
       

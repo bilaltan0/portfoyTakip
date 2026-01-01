@@ -35,6 +35,7 @@ import DashboardScreen from './screens/DashboardScreen';
 import TransactionScreen from './screens/TransactionScreen';
 import MoreScreen from './screens/MoreScreen';
 import TransactionHistoryScreen from './screens/TransactionHistoryScreen';
+import HelpScreen from './screens/HelpScreen';
 
 // Icons
 import { HomeIcon, TransactionIcon, MoreIcon } from './components/icons';
@@ -107,6 +108,7 @@ export default function App() {
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Main" component={TabNavigator} />
             <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+            <Stack.Screen name="Help" component={HelpScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </PortfolioProvider>

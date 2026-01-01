@@ -42,10 +42,7 @@ const PortfolioValueHeader = ({
         {/* Sol: Toplam Değer */}
         <View style={styles.valueSection}>
           <Text style={styles.totalValue}>
-            {currencySymbol}{totalValue.toLocaleString('tr-TR', { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 3 
-            })}
+            {currencySymbol}{Math.round(totalValue).toLocaleString('tr-TR')}
           </Text>
           <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
         </View>
