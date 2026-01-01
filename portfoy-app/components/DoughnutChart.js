@@ -83,7 +83,7 @@ export default function DoughnutChart({
       <View style={styles.center}>
         <Text style={styles.centerLabel}>{centerLabel}</Text>
         <Text style={styles.centerValue}>
-          {currencySymbol}{centerValue.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          {currencySymbol}{Math.round(centerValue).toLocaleString('tr-TR')}
         </Text>
       </View>
     </View>

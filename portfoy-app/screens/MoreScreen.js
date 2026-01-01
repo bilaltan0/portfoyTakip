@@ -25,12 +25,14 @@ import React from 'react';
 import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
-import { SettingsIcon, TrashIcon, HelpCircleIcon, InfoIcon, TransactionIcon } from '../components/icons';
+import { SettingsIcon, TrashIcon, HelpCircleIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
 import MenuItem from '../components/MenuItem';
+import Constants from 'expo-constants';
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   const handleClearData = () => {
     Alert.alert(
@@ -81,13 +83,6 @@ export default function MoreScreen({ navigation }) {
       onPress: () => navigation.navigate('Help'),
     },
     {
-      id: 'about',
-      title: 'Hakkında',
-      subtitle: 'Versiyon ve uygulama bilgileri',
-      icon: InfoIcon,
-      onPress: () => Alert.alert('PortföyMate', 'Versiyon 1.0.0\n© 2025'),
-    },
-    {
       id: 'debug',
       title: 'Verileri Temizle',
       subtitle: 'Tüm portföy ve işlem verilerini sil',
@@ -119,10 +114,12 @@ export default function MoreScreen({ navigation }) {
           ))}
         </View>
 
+        {/* Spacer - Alt kısmı aşağı iter */}
+        <View style={{ flex: 1, minHeight: 100 }} />
+
         {/* App Info */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>PortföyMate</Text>
-          <Text style={styles.footerVersion}>Versiyon 1.0.0</Text>
+          <Text style={styles.footerText}>PortföyMate • Versiyon {appVersion}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -148,23 +145,17 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 16,
+    flexGrow: 1,
   },
   menuSection: {
     // MenuItem component'i kendi stilini yönetiyor
   },
   footer: {
     alignItems: 'center',
-    marginTop: 32,
-    paddingVertical: 16,
+    paddingVertical: 24,
   },
   footerText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.darkBlue,
-    marginBottom: 4,
-  },
-  footerVersion: {
-    fontSize: 12,
+    fontSize: 14,
     color: COLORS.mediumGray,
   },
 });
