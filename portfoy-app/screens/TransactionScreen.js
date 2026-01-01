@@ -244,8 +244,8 @@ export default function TransactionScreen({ route, navigation }) {
       const priceData = await fetchAssetPrice(assetName, assetInfo);
       
       if (priceData && priceData.price > 0) {
-        // Fiyatı forma doldur (sessizce)
-        setUnitPrice(priceData.price.toString());
+        // Fiyatı forma doldur (sessizce) - max 3 decimal places
+        setUnitPrice(priceData.price.toFixed(3));
         setCurrency(priceData.currency);
       } else {
         Alert.alert('Hata', 'Fiyat bilgisi alınamadı');
@@ -545,7 +545,16 @@ export default function TransactionScreen({ route, navigation }) {
                   placeholder="Adet"
                   placeholderTextColor={COLORS.mediumGray}
                   value={quantity}
-                  onChangeText={setQuantity}
+                  onChangeText={(text) => {
+                    // Virgülden sonra max 3 basamak kontrolü
+                    const parts = text.split('.');
+                    if (parts.length > 1 && parts[1].length > 3) {
+                      // 3 basamaktan fazlaysa kes
+                      setQuantity(`${parts[0]}.${parts[1].substring(0, 3)}`);
+                    } else {
+                      setQuantity(text);
+                    }
+                  }}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -557,7 +566,16 @@ export default function TransactionScreen({ route, navigation }) {
                   placeholder="Fiyat girin"
                   placeholderTextColor={COLORS.mediumGray}
                   value={unitPrice}
-                  onChangeText={setUnitPrice}
+                  onChangeText={(text) => {
+                    // Virgülden sonra max 3 basamak kontrolü
+                    const parts = text.split('.');
+                    if (parts.length > 1 && parts[1].length > 3) {
+                      // 3 basamaktan fazlaysa kes
+                      setUnitPrice(`${parts[0]}.${parts[1].substring(0, 3)}`);
+                    } else {
+                      setUnitPrice(text);
+                    }
+                  }}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -627,7 +645,7 @@ export default function TransactionScreen({ route, navigation }) {
                 <Text style={styles.totalHint}>{quantity} × {unitPrice} {currency}</Text>
               </View>
               <Text style={styles.totalValue}>
-                {(parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                {(parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} {currency}
               </Text>
             </View>
           )}

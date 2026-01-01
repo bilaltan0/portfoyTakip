@@ -44,7 +44,7 @@ const PortfolioValueHeader = ({
           <Text style={styles.totalValue}>
             {currencySymbol}{totalValue.toLocaleString('tr-TR', { 
               minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
+              maximumFractionDigits: 3 
             })}
           </Text>
           <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
