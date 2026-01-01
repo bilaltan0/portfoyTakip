@@ -35,7 +35,7 @@ const ProfitLossCard = ({
           <Text style={[styles.profitLossAmount, { color: profitColor }]}>
             {isProfit ? '+' : ''}{currencySymbol}{Math.abs(profitLoss).toLocaleString('tr-TR', {
               minimumFractionDigits: 2,
-              maximumFractionDigits: 2
+              maximumFractionDigits: 3
             })}
           </Text>
           <View style={[styles.percentageBadge, { backgroundColor: profitColor }]}>
@@ -50,10 +50,10 @@ const ProfitLossCard = ({
       <View style={styles.detailsSection}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>📊 Toplam Yatırım</Text>
-          <Text style={styles.detailValue}>
+          <Text style={styles.value}>
             {currencySymbol}{totalInvestment.toLocaleString('tr-TR', {
               minimumFractionDigits: 2,
-              maximumFractionDigits: 2
+              maximumFractionDigits: 3
             })}
           </Text>
         </View>
@@ -65,7 +65,7 @@ const ProfitLossCard = ({
           <Text style={[styles.detailValue, { color: COLORS.primary, fontWeight: '700' }]}>
             {currencySymbol}{currentValue.toLocaleString('tr-TR', {
               minimumFractionDigits: 2,
-              maximumFractionDigits: 2
+              maximumFractionDigits: 3
             })}
           </Text>
         </View>

@@ -217,14 +217,29 @@ const fetchGoldPrice = async (goldType) => {
     
     // Altın türüne göre fiyat hesapla
     const goldWeights = {
-      'gold': 1, // 1 gram
+      'gold': 1, // 1 gram (24 ayar)
+      'gold-22k': 1, // 1 gram (22 ayar)
+      'gold-18k': 1, // 1 gram (18 ayar)
+      'gold-14k': 1, // 1 gram (14 ayar)
       'gold-quarter': 1.6, // Çeyrek altın (~1.6 gram)
       'gold-half': 3.2, // Yarım altın (~3.2 gram)
       'gold-republic': 7.2, // Cumhuriyet altını (~7.2 gram - 22 ayar)
+      'gold-resat': 7.2, // Reşat altını (~7.2 gram - 22 ayar)
     };
     
-    // 22 ayar için %91.67 saflık çarpanı (çünkü 24 ayar = %100)
-    const purity = goldType === 'gold' ? 1 : 0.9167; // Gram altın genelde 24 ayar
+    // Ayar bazlı saflık çarpanları
+    const purityMap = {
+      'gold': 1.0,        // 24 ayar = %100 saflık
+      'gold-22k': 0.9167, // 22 ayar = %91.67 saflık (22/24)
+      'gold-18k': 0.75,   // 18 ayar = %75 saflık (18/24)
+      'gold-14k': 0.5833, // 14 ayar = %58.33 saflık (14/24)
+      'gold-quarter': 0.9167,  // Çeyrek altın 22 ayar
+      'gold-half': 0.9167,     // Yarım altın 22 ayar
+      'gold-republic': 0.9167, // Cumhuriyet altını 22 ayar
+      'gold-resat': 0.9167,    // Reşat altını 22 ayar
+    };
+    
+    const purity = purityMap[goldType] || 1.0;
     const weight = goldWeights[goldType] || 1;
     const finalPrice = goldPricePerGramTRY * weight * purity;
     
@@ -241,10 +256,14 @@ const fetchGoldPrice = async (goldType) => {
     // Fallback: Mock fiyatlar
     console.warn('⚠️ Altın fiyatı çekilemedi, mock data kullanılıyor');
     const mockPrices = {
-      'gold': 3250,
-      'gold-quarter': 5350,
-      'gold-half': 10700,
-      'gold-republic': 21500,
+      'gold': 3250,        // 24 ayar gram altın
+      'gold-22k': 2980,    // 22 ayar gram altın
+      'gold-18k': 2440,    // 18 ayar gram altın
+      'gold-14k': 1895,    // 14 ayar gram altın
+      'gold-quarter': 5350,   // Çeyrek altın
+      'gold-half': 10700,     // Yarım altın
+      'gold-republic': 21500, // Cumhuriyet altını
+      'gold-resat': 21500,    // Reşat altını
     };
     
     return {

@@ -71,6 +71,15 @@ function TabNavigator() {
         options={{
           tabBarIcon: ({ color }) => <HomeIcon size={28} color={color} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Ana Sayfa tab'ına her tıklamada navigation stack'i resetle
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Ana Sayfa' }],
+            });
+          },
+        })}
       />
       <Tab.Screen 
         name="İşlem Yap" 

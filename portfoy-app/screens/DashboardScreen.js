@@ -421,7 +421,7 @@ export default function DashboardScreen({ navigation }) {
   const getCryptoDetail = () => {
     const assets = collectCategoryAssets('Kripto');
     
-    return assets.map(([name, data]) => {
+    return assets.map(([name, data], index) => {
       const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
       
       // Kripto için prices objesinde ara
@@ -449,7 +449,7 @@ export default function DashboardScreen({ navigation }) {
         avgPrice: convertCurrency(avgCostInTRY),
         currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
         hasLivePrice,
-        color: generateColorForAsset(name),
+        color: generateColorForAsset(name, index),
         quantityLabel: 'Miktar',
       };
     });
@@ -461,7 +461,7 @@ export default function DashboardScreen({ navigation }) {
   const getGoldDetail = () => {
     const assets = collectCategoryAssets('Altın');
     
-    return assets.map(([name, data]) => {
+    return assets.map(([name, data], index) => {
       const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
       
       // Altın için prices objesinde ara
@@ -489,7 +489,7 @@ export default function DashboardScreen({ navigation }) {
         avgPrice: convertCurrency(avgCostInTRY),
         currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
         hasLivePrice,
-        color: generateColorForAsset(name),
+        color: generateColorForAsset(name, index),
         quantityLabel: 'Adet',
       };
     });
@@ -501,7 +501,7 @@ export default function DashboardScreen({ navigation }) {
   const getStockDetail = () => {
     const assets = collectCategoryAssets('Borsa');
     
-    return assets.map(([name, data]) => {
+    return assets.map(([name, data], index) => {
       const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
       
       // Borsa için prices objesinde ara
@@ -529,7 +529,7 @@ export default function DashboardScreen({ navigation }) {
         avgPrice: convertCurrency(avgCostInTRY),
         currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
         hasLivePrice,
-        color: generateColorForAsset(name),
+        color: generateColorForAsset(name, index),
         quantityLabel: 'Adet',
       };
     });
@@ -541,7 +541,7 @@ export default function DashboardScreen({ navigation }) {
   const getForexDetail = () => {
     const assets = collectCategoryAssets('Döviz');
     
-    return assets.map(([name, data]) => {
+    return assets.map(([name, data], index) => {
       const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
       
       // Döviz için prices objesinde ara
@@ -569,7 +569,7 @@ export default function DashboardScreen({ navigation }) {
         avgPrice: convertCurrency(avgCostInTRY),
         currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
         hasLivePrice,
-        color: generateColorForAsset(name),
+        color: generateColorForAsset(name, index),
         quantityLabel: 'Miktar',
       };
     });
