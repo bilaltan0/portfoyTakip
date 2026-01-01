@@ -133,7 +133,10 @@ export default function AssetDetailCard({
       
       <View style={styles.percentage}>
         <Text style={styles.percentageText}>
-          {asset.exactPercentage ? asset.exactPercentage.toFixed(2) : asset.percentage}%
+          {(() => {
+            const pct = asset.exactPercentage || asset.percentage || 0;
+            return isFinite(pct) ? pct.toFixed(2) : '0.00';
+          })()}%
         </Text>
       </View>
     </TouchableOpacity>

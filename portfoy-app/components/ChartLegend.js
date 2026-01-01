@@ -19,15 +19,23 @@ export default function ChartLegend({ data = [] }) {
     <View style={styles.container}>
       {data.map((item, index) => {
         console.log(`📌 Item ${index}: name="${item.name}", percentage=${item.percentage}, color=${item.color}`);
-        const displayPercentage = item.exactPercentage 
-          ? item.exactPercentage.toFixed(2) 
-          : item.percentage;
+        
+        // Infinity veya NaN kontrolü
+        let displayPercentage = item.exactPercentage || item.percentage || 0;
+        
+        if (!isFinite(displayPercentage)) {
+          displayPercentage = 0;
+        }
+        
+        const formattedPercentage = typeof displayPercentage === 'number' 
+          ? displayPercentage.toFixed(2) 
+          : displayPercentage;
         
         return (
           <View key={`${item.name}-${index}`} style={styles.item}>
             <View style={[styles.dot, { backgroundColor: item.color }]} />
             <Text style={styles.name}>{item.symbol || item.name || 'İsimsiz'}</Text>
-            <Text style={styles.percentage}>{displayPercentage}%</Text>
+            <Text style={styles.percentage}>{formattedPercentage}%</Text>
           </View>
         );
       })}

@@ -1,7 +1,7 @@
 /**
  * Exchange Rate Service - Döviz Kuru Servisi
  * 
- * TCMB API'sinden anlık döviz kurlarını çeker ve cache'ler.
+ * Exchange Rate API'den anlık döviz kurlarını çeker ve cache'ler.
  * Dashboard ve fiyat hesaplamalarında kullanılır.
  */
 
@@ -14,70 +14,37 @@ const CACHE_KEY = 'exchange_rates_cache';
 let memoryCache = null;
 
 /**
- * TCMB API'den döviz kurlarını çeker
+ * Exchange Rate API'den döviz kurlarını çeker
  * @returns {Promise<object>} { USD: 34.5, EUR: 37.8, GBP: 43.2 }
  */
 const fetchTCMBRates = async () => {
   try {
-    const today = new Date();
-    const day = today.getDate().toString().padStart(2, '0');
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const year = today.getFullYear();
+    // Exchange Rate API - TRY bazlı kurlar al
+    // Ücretsiz: 1500 istek/ay, API key gerekmez
+    const response = await fetch('https://open.er-api.com/v6/latest/TRY');
     
-    let response = await fetch(
-      `https://www.tcmb.gov.tr/kurlar/${year}${month}/${day}${month}${year}.xml`
-    );
-    
-    // Bugünkü veri yoksa dünün verisini al
     if (!response.ok) {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yDay = yesterday.getDate().toString().padStart(2, '0');
-      const yMonth = (yesterday.getMonth() + 1).toString().padStart(2, '0');
-      const yYear = yesterday.getFullYear();
-      
-      response = await fetch(
-        `https://www.tcmb.gov.tr/kurlar/${yYear}${yMonth}/${yDay}${yMonth}${yYear}.xml`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`TCMB API error: ${response.status}`);
-      }
+      throw new Error(`Exchange Rate API error: ${response.status}`);
     }
     
-    const xmlText = await response.text();
+    const data = await response.json();
     
-    // USD, EUR, GBP kurlarını parse et
+    // TRY bazlı kurlar geldi, tersine çevirmemiz gerekiyor
+    // TRY/USD = 0.029 → USD/TRY = 1/0.029 = 34.5
     const rates = {
-      TRY: 1, // TRY baz para birimi
-      USD: parseRate(xmlText, 'USD'),
-      EUR: parseRate(xmlText, 'EUR'),
-      GBP: parseRate(xmlText, 'GBP'),
+      TRY: 1,
+      USD: data.rates.USD ? (1 / data.rates.USD) : 34.5,
+      EUR: data.rates.EUR ? (1 / data.rates.EUR) : 37.8,
+      GBP: data.rates.GBP ? (1 / data.rates.GBP) : 43.2,
     };
+    
+    console.log('💱 Exchange rates:', rates);
     
     return rates;
   } catch (error) {
-    console.error('❌ TCMB fetch error:', error);
+    console.error('❌ Exchange Rate API fetch error:', error);
     throw error;
   }
-};
-
-/**
- * XML'den belirli para biriminin kurunu parse eder
- */
-const parseRate = (xmlText, currency) => {
-  // ForexSelling (efektif satış) kurunu al
-  const regex = new RegExp(
-    `<Currency.*?CurrencyCode="${currency}".*?<ForexSelling>(.*?)</ForexSelling>`,
-    's'
-  );
-  const match = xmlText.match(regex);
-  
-  if (match && match[1]) {
-    return parseFloat(match[1]);
-  }
-  
-  throw new Error(`Currency ${currency} not found in TCMB data`);
 };
 
 /**
@@ -141,7 +108,7 @@ export const getExchangeRates = async () => {
     }
     
     // Cache yoksa API'den çek
-    console.log('🔄 Fetching fresh exchange rates from TCMB...');
+    console.log('🔄 Fetching fresh exchange rates from Exchange Rate API...');
     const rates = await fetchTCMBRates();
     
     console.log('✅ Exchange rates fetched:', rates);
