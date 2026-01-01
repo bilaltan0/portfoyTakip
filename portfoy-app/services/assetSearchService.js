@@ -232,15 +232,21 @@ export const searchAllAssets = async (searchTerm, category = '') => {
     }
     
     if (!category || category === 'Altın') {
-      // Altın araması - basit statik liste
+      // Altın araması - kullanıcı dostu arama terimleriyle
       const goldAssets = [
-        { assetName: 'Gram Altın', symbol: 'XAU', provider: 'metals', id: 'gold', currency: 'TRY', category: 'Altın', fullName: 'Gram Altın', ticker: 'XAU' },
-        { assetName: 'Çeyrek Altın', symbol: 'XAU_QUARTER', provider: 'metals', id: 'gold-quarter', currency: 'TRY', category: 'Altın', fullName: 'Çeyrek Altın', ticker: 'XAU_QUARTER' },
-        { assetName: 'Yarım Altın', symbol: 'XAU_HALF', provider: 'metals', id: 'gold-half', currency: 'TRY', category: 'Altın', fullName: 'Yarım Altın', ticker: 'XAU_HALF' },
-        { assetName: 'Tam Altın', symbol: 'XAU_FULL', provider: 'metals', id: 'gold-republic', currency: 'TRY', category: 'Altın', fullName: 'Tam Altın', ticker: 'XAU_FULL' }
+        { assetName: 'Gram Altın', symbol: 'Gram Altın', provider: 'metals', id: 'gold', currency: 'TRY', category: 'Altın', fullName: 'Gram Altın (24 Ayar)', ticker: 'XAU' },
+        { assetName: '22 Ayar Altın', symbol: '22 Ayar Altın', provider: 'metals', id: 'gold-22k', currency: 'TRY', category: 'Altın', fullName: '22 Ayar Altın', ticker: 'XAU_22K' },
+        { assetName: '18 Ayar Altın', symbol: '18 Ayar Altın', provider: 'metals', id: 'gold-18k', currency: 'TRY', category: 'Altın', fullName: '18 Ayar Altın', ticker: 'XAU_18K' },
+        { assetName: '14 Ayar Altın', symbol: '14 Ayar Altın', provider: 'metals', id: 'gold-14k', currency: 'TRY', category: 'Altın', fullName: '14 Ayar Altın', ticker: 'XAU_14K' },
+        { assetName: 'Çeyrek Altın', symbol: 'Çeyrek Altın', provider: 'metals', id: 'gold-quarter', currency: 'TRY', category: 'Altın', fullName: 'Çeyrek Altın (Cumhuriyet)', ticker: 'XAU_QUARTER' },
+        { assetName: 'Yarım Altın', symbol: 'Yarım Altın', provider: 'metals', id: 'gold-half', currency: 'TRY', category: 'Altın', fullName: 'Yarım Altın (Cumhuriyet)', ticker: 'XAU_HALF' },
+        { assetName: 'Tam Altın', symbol: 'Tam Altın', provider: 'metals', id: 'gold-republic', currency: 'TRY', category: 'Altın', fullName: 'Tam Altın (Cumhuriyet)', ticker: 'XAU_FULL' },
+        { assetName: 'Reşat Altını', symbol: 'Reşat Altını', provider: 'metals', id: 'gold-resat', currency: 'TRY', category: 'Altın', fullName: 'Reşat Altını', ticker: 'XAU_RESAT' }
       ];
       const goldMatches = goldAssets.filter(g => 
-        g.assetName.toLowerCase().includes(searchTerm.toLowerCase())
+        g.assetName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        g.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        g.fullName.toLowerCase().includes(searchTerm.toLowerCase())
       );
       allResults.push(...goldMatches);
     }
@@ -250,7 +256,11 @@ export const searchAllAssets = async (searchTerm, category = '') => {
       const forexAssets = [
         { assetName: 'Amerikan Doları (USD)', symbol: 'USD', provider: 'tcmb', id: 'USD', currency: 'TRY', category: 'Döviz', fullName: 'Amerikan Doları', ticker: 'USD' },
         { assetName: 'Euro (EUR)', symbol: 'EUR', provider: 'tcmb', id: 'EUR', currency: 'TRY', category: 'Döviz', fullName: 'Euro', ticker: 'EUR' },
-        { assetName: 'İngiliz Sterlini (GBP)', symbol: 'GBP', provider: 'tcmb', id: 'GBP', currency: 'TRY', category: 'Döviz', fullName: 'İngiliz Sterlini', ticker: 'GBP' }
+        { assetName: 'İngiliz Sterlini (GBP)', symbol: 'GBP', provider: 'tcmb', id: 'GBP', currency: 'TRY', category: 'Döviz', fullName: 'İngiliz Sterlini', ticker: 'GBP' },
+        { assetName: 'Japon Yeni (JPY)', symbol: 'JPY', provider: 'tcmb', id: 'JPY', currency: 'TRY', category: 'Döviz', fullName: 'Japon Yeni', ticker: 'JPY' },
+        { assetName: 'İsviçre Frangı (CHF)', symbol: 'CHF', provider: 'tcmb', id: 'CHF', currency: 'TRY', category: 'Döviz', fullName: 'İsviçre Frangı', ticker: 'CHF' },
+        { assetName: 'Kanada Doları (CAD)', symbol: 'CAD', provider: 'tcmb', id: 'CAD', currency: 'TRY', category: 'Döviz', fullName: 'Kanada Doları', ticker: 'CAD' },
+        { assetName: 'Avustralya Doları (AUD)', symbol: 'AUD', provider: 'tcmb', id: 'AUD', currency: 'TRY', category: 'Döviz', fullName: 'Avustralya Doları', ticker: 'AUD' }
       ];
       const forexMatches = forexAssets.filter(f => 
         f.assetName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -405,7 +415,7 @@ function fuzzyMatch(text, searchTerm) {
 
 /**
  * Popüler varlıkları döndür
- * @param {string} category - "Kripto" veya "Borsa"
+ * @param {string} category - "Kripto", "Borsa", "Altın" veya "Döviz"
  * @returns {Array} Popüler varlıklar
  */
 export const getPopularAssets = (category) => {
@@ -433,6 +443,27 @@ export const getPopularAssets = (category) => {
       fullName: stock.name,
       ticker: stock.symbol
     }));
+  }
+  
+  if (category === 'Altın') {
+    return [
+      { assetName: 'Gram Altın', symbol: 'Gram Altın', provider: 'metals', id: 'gold', currency: 'TRY', category: 'Altın', fullName: 'Gram Altın (24 Ayar)', ticker: 'XAU' },
+      { assetName: '22 Ayar Altın', symbol: '22 Ayar Altın', provider: 'metals', id: 'gold-22k', currency: 'TRY', category: 'Altın', fullName: '22 Ayar Altın', ticker: 'XAU_22K' },
+      { assetName: '18 Ayar Altın', symbol: '18 Ayar Altın', provider: 'metals', id: 'gold-18k', currency: 'TRY', category: 'Altın', fullName: '18 Ayar Altın', ticker: 'XAU_18K' },
+      { assetName: '14 Ayar Altın', symbol: '14 Ayar Altın', provider: 'metals', id: 'gold-14k', currency: 'TRY', category: 'Altın', fullName: '14 Ayar Altın', ticker: 'XAU_14K' },
+      { assetName: 'Çeyrek Altın', symbol: 'Çeyrek Altın', provider: 'metals', id: 'gold-quarter', currency: 'TRY', category: 'Altın', fullName: 'Çeyrek Altın (Cumhuriyet)', ticker: 'XAU_QUARTER' },
+      { assetName: 'Yarım Altın', symbol: 'Yarım Altın', provider: 'metals', id: 'gold-half', currency: 'TRY', category: 'Altın', fullName: 'Yarım Altın (Cumhuriyet)', ticker: 'XAU_HALF' }
+    ];
+  }
+  
+  if (category === 'Döviz') {
+    return [
+      { assetName: 'Amerikan Doları (USD)', symbol: 'USD', provider: 'tcmb', id: 'USD', currency: 'TRY', category: 'Döviz', fullName: 'Amerikan Doları', ticker: 'USD' },
+      { assetName: 'Euro (EUR)', symbol: 'EUR', provider: 'tcmb', id: 'EUR', currency: 'TRY', category: 'Döviz', fullName: 'Euro', ticker: 'EUR' },
+      { assetName: 'İngiliz Sterlini (GBP)', symbol: 'GBP', provider: 'tcmb', id: 'GBP', currency: 'TRY', category: 'Döviz', fullName: 'İngiliz Sterlini', ticker: 'GBP' },
+      { assetName: 'Japon Yeni (JPY)', symbol: 'JPY', provider: 'tcmb', id: 'JPY', currency: 'TRY', category: 'Döviz', fullName: 'Japon Yeni', ticker: 'JPY' },
+      { assetName: 'İsviçre Frangı (CHF)', symbol: 'CHF', provider: 'tcmb', id: 'CHF', currency: 'TRY', category: 'Döviz', fullName: 'İsviçre Frangı', ticker: 'CHF' }
+    ];
   }
   
   return [];
