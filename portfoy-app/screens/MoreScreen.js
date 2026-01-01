@@ -75,10 +75,10 @@ export default function MoreScreen({ navigation }) {
     },
     {
       id: 'help',
-      title: 'Yardım & SSS',
-      subtitle: 'Sık sorulan sorular ve destek',
+      title: 'Yardım & Destek',
+      subtitle: 'Öneri, şikayet ve destek talebi',
       icon: HelpCircleIcon,
-      onPress: () => Alert.alert('Yardım', 'Yakında eklenecek'),
+      onPress: () => navigation.navigate('Help'),
     },
     {
       id: 'about',
