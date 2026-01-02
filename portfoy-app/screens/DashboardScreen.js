@@ -366,7 +366,10 @@ export default function DashboardScreen({ navigation }) {
 
   // Yüzdeleri hesapla - ondalıklı hassas gösterim
   const portfolioDistribution = rawDistribution.map((item, index, arr) => {
-    const exactPercentage = (item.value / totalPortfolioValue) * 100;
+    // Division by zero kontrolü
+    const exactPercentage = totalPortfolioValue > 0 
+      ? (item.value / totalPortfolioValue) * 100 
+      : 0;
     
     return {
       ...item,

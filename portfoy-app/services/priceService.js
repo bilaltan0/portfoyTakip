@@ -5,9 +5,8 @@
  * 
  * Kullanılan API'ler:
  * - CoinGecko: Kripto paralar (ücretsiz, rate limit: 10-50/dakika)
- * - Yahoo Finance: Hisse senetleri (ücretsiz)
- * - Metals-API veya Investing.com: Altın fiyatları
- * - TCMB: Döviz kurları
+ * - Yahoo Finance: Hisse senetleri ve altın ons fiyatı (ücretsiz)
+ * - Exchange Rate API: Döviz kurları (ücretsiz, 1500 istek/ay)
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -122,66 +121,41 @@ const fetchYahooPrice = async (symbol) => {
 };
 
 /**
- * TCMB API'den döviz kuru çeker
+ * Exchange Rate API'den döviz kuru çeker (Ücretsiz, güvenilir)
  * @param {string} currency - 'USD', 'EUR', 'GBP'
  * @returns {Promise<number>} TRY karşısında kur
  */
 const fetchTCMBRate = async (currency) => {
   try {
-    // TCMB Döviz Kurları XML API
-    const today = new Date();
-    const day = today.getDate().toString().padStart(2, '0');
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const year = today.getFullYear();
-    
+    // Exchange Rate API - TRY bazlı kurlar
+    // Ücretsiz tier: 1500 istek/ay, API key gerekmez
     const response = await fetch(
-      `https://www.tcmb.gov.tr/kurlar/${year}${month}/${day}${month}${year}.xml`
+      `https://open.er-api.com/v6/latest/${currency}`
     );
     
     if (!response.ok) {
-      // Bugünkü veri yoksa dünün verisini al
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yDay = yesterday.getDate().toString().padStart(2, '0');
-      const yMonth = (yesterday.getMonth() + 1).toString().padStart(2, '0');
-      const yYear = yesterday.getFullYear();
-      
-      const retryResponse = await fetch(
-        `https://www.tcmb.gov.tr/kurlar/${yYear}${yMonth}/${yDay}${yMonth}${yYear}.xml`
-      );
-      
-      if (!retryResponse.ok) {
-        throw new Error(`TCMB API error: ${retryResponse.status}`);
-      }
-      
-      const xmlText = await retryResponse.text();
-      return parseTCMBXML(xmlText, currency);
+      throw new Error(`Exchange Rate API error: ${response.status}`);
     }
     
-    const xmlText = await response.text();
-    return parseTCMBXML(xmlText, currency);
-  } catch (error) {
-    console.error('TCMB fetch error:', error);
-    throw error;
-  }
-};
-
-/**
- * TCMB XML'den döviz kurunu parse eder
- */
-const parseTCMBXML = (xmlText, currency) => {
-  // Basit XML parsing (production'da xml2js kullan)
-  const regex = new RegExp(`<Currency.*?CurrencyCode="${currency}".*?<ForexSelling>(.*?)</ForexSelling>`, 's');
-  const match = xmlText.match(regex);
-  
-  if (match && match[1]) {
+    const data = await response.json();
+    
+    // TRY kuru al
+    const tryRate = data.rates?.TRY;
+    
+    if (!tryRate) {
+      throw new Error(`TRY rate not found for ${currency}`);
+    }
+    
+    console.log(`💱 ${currency} → TRY: ${tryRate.toFixed(4)}`);
+    
     return {
-      try: parseFloat(match[1]),
+      try: tryRate,
       timestamp: Date.now(),
     };
+  } catch (error) {
+    console.error('Exchange Rate API fetch error:', error);
+    throw error;
   }
-  
-  throw new Error(`Currency ${currency} not found in TCMB data`);
 };
 
 /**
