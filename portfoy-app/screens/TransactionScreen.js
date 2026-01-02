@@ -243,16 +243,26 @@ export default function TransactionScreen({ route, navigation }) {
       // API'den fiyat çek (assetSearchService'den gelen tüm bilgiyi gönder)
       const priceData = await fetchAssetPrice(assetName, assetInfo);
       
+      // Rate limit hatası kontrolü
+      if (priceData?.rateLimitError) {
+        Alert.alert(
+          '⚠️ Rate Limit', 
+          priceData.message || 'Fiyat şu an çekilemiyor. Lütfen manuel olarak girin.',
+          [{ text: 'Tamam' }]
+        );
+        return; // Fiyat alanını boş bırak, kullanıcı manuel girecek
+      }
+      
       if (priceData && priceData.price > 0) {
         // Fiyatı forma doldur (sessizce) - max 3 decimal places
         setUnitPrice(priceData.price.toFixed(3));
         setCurrency(priceData.currency);
       } else {
-        Alert.alert('Hata', 'Fiyat bilgisi alınamadı');
+        Alert.alert('Hata', 'Fiyat bilgisi alınamadı. Lütfen manuel olarak girin.');
       }
     } catch (error) {
       console.error('Fiyat çekme hatası:', error);
-      Alert.alert('Hata', `Fiyat alınırken hata oluştu:\n${error.message}`);
+      Alert.alert('Hata', `Fiyat alınırken hata oluştu. Lütfen manuel girin:\n${error.message}`);
     } finally {
       setIsFetchingPrice(false);
     }
@@ -346,12 +356,14 @@ export default function TransactionScreen({ route, navigation }) {
 
   // Handle buy button
   const handleBuy = () => {
+    Keyboard.dismiss(); // Klavyeyi kapat
     handleSubmit('buy');
   };
 
   // Handle sell button - Stok kontrolü ile
   const handleSell = () => {
     if (!validateForm()) return;
+    Keyboard.dismiss(); // Klavyeyi kapat
 
     // Aktif portföydeki varlık pozisyonunu hesapla
     const transactions = activePortfolio?.transactions || [];

@@ -12,12 +12,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Cache yapılandırması
-const CACHE_DURATION = 15 * 60 * 1000; // 15 dakika (Rate Limit için artırıldı)
+const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika (Rate Limit optimizasyonu)
 const CACHE_KEY_PREFIX = 'price_cache_';
 
 // Rate Limit yönetimi
 let lastCoinGeckoCall = 0;
-const COINGECKO_RATE_LIMIT_DELAY = 2000; // 2 saniye (dakikada max 30 istek)
+const COINGECKO_RATE_LIMIT_DELAY = 5000; // 5 saniye (dakikada max 12 istek - daha güvenli)
 
 // In-memory cache
 const memoryCache = new Map();
@@ -89,6 +89,63 @@ const fetchCoinGeckoPrice = async (coinIds) => {
     throw error;
   }
 };
+
+/**
+ * Binance API'den kripto fiyatı çeker (Fallback için)
+ * @param {string} symbolOrName - 'ETH', 'AVAX' veya 'ethereum', 'avalanche-2' gibi
+ * @returns {Promise<Object>} USD fiyatı
+ */
+const fetchBinancePrice = async (symbolOrName) => {
+  try {
+    // Symbol'ü temizle ve büyük harfe çevir
+    let baseSymbol = symbolOrName.toUpperCase().trim();
+    
+    // CoinGecko ID formatında ise (ethereum, avalanche-2, bitcoin, vb.) 
+    // Symbol'e çevir (ETH, AVAX, BTC)
+    const coinGeckoToBinanceSymbol = {
+      'ETHEREUM': 'ETH',
+      'BITCOIN': 'BTC',
+      'BINANCECOIN': 'BNB',
+      'RIPPLE': 'XRP',
+      'CARDANO': 'ADA',
+      'DOGECOIN': 'DOGE',
+      'SOLANA': 'SOL',
+      'POLKADOT': 'DOT',
+      'AVALANCHE-2': 'AVAX',
+      'TRON': 'TRX',
+    };
+    
+    baseSymbol = coinGeckoToBinanceSymbol[baseSymbol] || baseSymbol;
+    
+    // Binance sembolü: ETHUSDT, BTCUSDT, AVAXUSDT, vb.
+    const binanceSymbol = `${baseSymbol}USDT`;
+    
+    console.log(`🔶 Binance API çağrısı: ${binanceSymbol}`);
+    
+    const response = await fetch(
+      `https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Binance API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const usdPrice = parseFloat(data.price);
+    
+    console.log(`✅ Binance ${binanceSymbol}: ${usdPrice} USD`);
+    
+    return {
+      usd: usdPrice,
+      try: 0, // TRY için ayrı dönüşüm gerekir
+      timestamp: Date.now(),
+    };
+  } catch (error) {
+    console.error('Binance fetch error:', error);
+    throw error;
+  }
+};
+
 
 /**
  * Yahoo Finance API'den hisse fiyatı çeker
@@ -478,8 +535,40 @@ export const fetchAssetPrice = async (assetName, assetInfo = null) => {
         throw new Error(`Unknown provider: ${mapping.provider}`);
     }
   } catch (error) {
-    // 429 Rate Limit hatası - eski cache'i kullan (süre dolmuş olsa bile)
-    if (error.message.includes('429')) {
+    // 429 Rate Limit hatası veya CoinGecko hatası
+    if (error.message.includes('429') || error.message.includes('CoinGecko')) {
+      console.warn(`⚠️ CoinGecko başarısız! ${assetName} için alternatif yöntemler deneniyor...`);
+      
+      // 1. Binance API'yi dene (sadece kripto için)
+      if (mapping.provider === 'coingecko') {
+        try {
+          // Symbol'ü veya CoinGecko ID'yi Binance'e gönder
+          const searchTerm = mapping.symbol || mapping.id;
+          console.log(`🔶 Binance fallback deneniyor: ${searchTerm}`);
+          
+          priceData = await fetchBinancePrice(searchTerm);
+          console.log(`✅ Binance'den fiyat alındı:`, priceData);
+          
+          // Başarılı! Devam et (cache'e kaydet)
+          const currencyLower = mapping.currency.toLowerCase();
+          const priceObject = {
+            assetName,
+            price: priceData[currencyLower] || priceData.usd || 0,
+            currency: mapping.currency,
+            timestamp: priceData.timestamp,
+            isMock: false,
+            source: 'binance', // Binance'den geldiğini belirt
+          };
+          
+          await setCachedPrice(assetName, priceObject);
+          return priceObject;
+        } catch (binanceError) {
+          console.warn(`⚠️ Binance da başarısız oldu:`, binanceError.message);
+          // Devam et, cache kontrolüne geç
+        }
+      }
+      
+      // 2. Eski cache'i kullan (süre dolmuş olsa bile)
       console.warn(`⚠️ Rate Limit! ${assetName} için eski cache aranıyor...`);
       
       // Memory cache'de var mı? (süre dolmuş olabilir)
@@ -501,10 +590,29 @@ export const fetchAssetPrice = async (assetName, assetInfo = null) => {
         // Cache okunamadı
       }
       
+      // Cache de yok - Rate limit hatası, fiyat çekilemedi
       console.error(`❌ ${assetName} için hiç cache yok ve Rate Limit aktif!`);
+      
+      // Fiyat çekilemediğinde NULL döndür (kullanıcı manuel girecek)
+      const fallbackPrice = {
+        assetName,
+        price: null, // ❌ Fiyat yok - kullanıcı manuel girmeli
+        currency: mapping.currency,
+        timestamp: Date.now(),
+        isMock: false,
+        rateLimitError: true,
+        message: 'Fiyat şu an çekilemiyor. Lütfen manuel olarak girin veya daha sonra tekrar deneyin.'
+      };
+      
+      console.log(`⚠️ Rate Limit - Fiyat yok, kullanıcı manuel girecek:`, fallbackPrice);
+      
+      // Fallback'i cache'e KAYDETME - çünkü gerçek fiyat değil
+      
+      return fallbackPrice;
     }
     
-    // Hatayı yukarı fırlat
+    // Diğer hatalar için (network, API down vb.) - hatayı yukarı fırlat
+    console.error(`Fiyat çekme hatası:`, error);
     throw error;
   }
   
