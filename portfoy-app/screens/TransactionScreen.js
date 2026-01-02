@@ -97,6 +97,12 @@ export default function TransactionScreen({ route, navigation }) {
         isPreselectingRef.current = true;
         setMainCategory(preselectedAsset.mainCategory || '');
         setAssetName(preselectedAsset.assetName || '');
+        
+        // ✅ selectedAssetInfo varsa set et (buton için gerekli!)
+        if (preselectedAsset.selectedAssetInfo) {
+          setSelectedAssetInfo(preselectedAsset.selectedAssetInfo);
+        }
+        
         // Parametreleri temizle
         navigation.setParams({ preselectedAsset: undefined });
         // Preselecting işlemi bittiğini işaretle

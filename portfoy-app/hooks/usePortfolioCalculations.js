@@ -96,12 +96,16 @@ export const usePortfolioCalculations = (transactions, displayCurrency = 'TRY') 
       .filter(([_, data]) => data.totalValue > 0)
       .map(([name, data]) => {
         // Ortalama alış fiyatı hesapla (sadece buy işlemlerinden)
+        // NOT: Satış yaparken avg price DEĞİŞMEZ! Sadece alış yaparken değişir.
         const buyTransactions = data.transactions.filter(tx => tx.type === 'buy');
         const totalBuyValue = buyTransactions.reduce((sum, tx) => {
           const txValue = tx.quantity * tx.unitPrice;
           return sum + convertCurrency(txValue, tx.currency || 'TRY', displayCurrency);
         }, 0);
         const totalBuyQuantity = buyTransactions.reduce((sum, tx) => sum + tx.quantity, 0);
+        
+        // Avg price = Toplam alış değeri / Toplam alış miktarı
+        // Satışlar avg price'ı değiştirmez, sadece kalan miktarı azaltır
         const avgPrice = totalBuyQuantity > 0 ? totalBuyValue / totalBuyQuantity : 0;
         
         return {

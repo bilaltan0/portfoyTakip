@@ -409,7 +409,12 @@ export default function DashboardScreen({ navigation }) {
         
         const txCurrency = tx.currency || 'TRY';
         const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
-        categoryAssets[assetKey].totalCostInTRY += costInTRY * multiplier;
+        
+        // SADECE ALIŞ işlemleri toplam maliyete eklenir
+        // Satış işlemleri avg price'ı değiştirmez!
+        if (tx.type === 'buy') {
+          categoryAssets[assetKey].totalCostInTRY += costInTRY;
+        }
         
         categoryAssets[assetKey].transactions.push(tx);
       }
@@ -425,7 +430,13 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Kripto');
     
     return assets.map(([name, data], index) => {
-      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      // Ortalama alış fiyatı = Toplam alış maliyeti / Toplam alınan miktar
+      // Satışlar avg price'ı değiştirmez!
+      const totalBuyQuantity = data.transactions
+        .filter(tx => tx.type === 'buy')
+        .reduce((sum, tx) => sum + tx.quantity, 0);
+      
+      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
       
       // Kripto için prices objesinde ara
       const priceData = prices[name];
@@ -465,7 +476,12 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Altın');
     
     return assets.map(([name, data], index) => {
-      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      // Ortalama alış fiyatı hesaplama (sadece BUY)
+      const totalBuyQuantity = data.transactions
+        .filter(tx => tx.type === 'buy')
+        .reduce((sum, tx) => sum + tx.quantity, 0);
+      
+      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
       
       // Altın için prices objesinde ara
       const priceData = prices[name];
@@ -505,7 +521,12 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Borsa');
     
     return assets.map(([name, data], index) => {
-      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      // Ortalama alış fiyatı hesaplama (sadece BUY)
+      const totalBuyQuantity = data.transactions
+        .filter(tx => tx.type === 'buy')
+        .reduce((sum, tx) => sum + tx.quantity, 0);
+      
+      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
       
       // Borsa için prices objesinde ara
       const priceData = prices[name];
@@ -545,7 +566,12 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Döviz');
     
     return assets.map(([name, data], index) => {
-      const avgCostInTRY = data.totalQuantity > 0 ? data.totalCostInTRY / data.totalQuantity : 0;
+      // Ortalama alış fiyatı hesaplama (sadece BUY)
+      const totalBuyQuantity = data.transactions
+        .filter(tx => tx.type === 'buy')
+        .reduce((sum, tx) => sum + tx.quantity, 0);
+      
+      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
       
       // Döviz için prices objesinde ara
       const priceData = prices[name];
@@ -761,12 +787,31 @@ export default function DashboardScreen({ navigation }) {
                     currencySymbol={currencySymbol}
                     currentPrice={currentPrice}
                     onPress={() => {
+                      // Bu varlığın transaction'larından API bilgilerini al
+                      const assetTransactions = transactions.filter(
+                        tx => tx.mainCategory === selectedCategory && tx.assetName === (asset.fullName || asset.name)
+                      );
+                      
+                      // En güncel transaction'dan API bilgilerini al
+                      const latestTx = assetTransactions[0] || {};
+                      
+                      // selectedAssetInfo objesi oluştur (TransactionScreen'in beklediği formatta)
+                      const assetInfo = {
+                        provider: latestTx.provider || null,
+                        id: latestTx.apiId || null,
+                        symbol: asset.symbol || latestTx.symbol || null,
+                        currency: latestTx.apiCurrency || 'TRY',
+                        category: selectedCategory,
+                        fullName: asset.fullName || asset.name
+                      };
+                      
                       // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
                       navigation.navigate('İşlem Yap', {
                         preselectedAsset: {
                           mainCategory: selectedCategory,
                           assetName: asset.fullName || asset.name,
-                          type: 'buy'
+                          type: 'buy',
+                          selectedAssetInfo: assetInfo // ✅ Asset bilgilerini ekle
                         }
                       });
                     }}
