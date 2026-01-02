@@ -94,8 +94,8 @@ Bu gizlilik politikası zaman zaman güncellenebilir. Güncellemeler bu sayfada 
 
 Gizlilik politikası hakkında sorularınız için:
 
-**Email:** bilaltan0@gmail.com  
-**Geliştirici:** Bilal Tan  
+**Email:** bilaltan746@gmail.com  
+**Geliştirici:** Bilal Altan  
 **Uygulama:** PortföyMate  
 
 ## 11. Yasal Uyumluluk
@@ -114,4 +114,4 @@ PortföyMate bir portföy takip uygulamasıdır ve yatırım tavsiyesi VERMEZ. F
 **Kabul:** Bu uygulamayı kullanarak, bu gizlilik politikasını kabul etmiş sayılırsınız.
 
 **Tarih:** 2 Ocak 2026  
-**Versiyon:** 1.0
+**Versiyon:** 1.0.1
