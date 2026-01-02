@@ -47,7 +47,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { COLORS, MOCK_ASSETS, CURRENCY_SYMBOLS, EXCHANGE_RATES } from '../constants/theme';
-import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, ChevronDownIcon } from '../components/icons';
+import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
 import PortfolioSelector from '../components/PortfolioSelector';
 
@@ -77,6 +77,9 @@ import { calculatePeriodProfitLoss } from '../utils/periodCalculations';
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
   const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
+  
+  // Gizlilik state (tutar gizleme/gösterme)
+  const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   
   // Döviz kurları state
   const [exchangeRates, setExchangeRates] = useState(EXCHANGE_RATES); // Fallback olarak sabit kurlar
@@ -384,40 +387,67 @@ export default function DashboardScreen({ navigation }) {
   
   /**
    * Ortak yardımcı fonksiyon: Varlık listesini toplar ve işler
+   * AĞIRLIKLI ORTALAMA yöntemiyle avg price hesaplar
    */
   const collectCategoryAssets = (categoryName) => {
     const categoryAssets = {};
-    transactions.forEach(tx => {
-      if (tx.mainCategory === categoryName) {
-        const assetKey = tx.assetName;
-        if (!categoryAssets[assetKey]) {
-          categoryAssets[assetKey] = {
-            totalQuantity: 0,
-            totalCostInTRY: 0,
-            transactions: [],
-            symbol: tx.symbol || null, // Symbol bilgisini sakla
-          };
-        }
-        
-        // En güncel symbol'ü kullan
-        if (tx.symbol && !categoryAssets[assetKey].symbol) {
-          categoryAssets[assetKey].symbol = tx.symbol;
-        }
-        
-        const multiplier = tx.type === 'buy' ? 1 : -1;
-        categoryAssets[assetKey].totalQuantity += tx.quantity * multiplier;
-        
-        const txCurrency = tx.currency || 'TRY';
-        const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
-        
-        // SADECE ALIŞ işlemleri toplam maliyete eklenir
-        // Satış işlemleri avg price'ı değiştirmez!
-        if (tx.type === 'buy') {
-          categoryAssets[assetKey].totalCostInTRY += costInTRY;
-        }
-        
-        categoryAssets[assetKey].transactions.push(tx);
+    
+    // Transaction'ları tarihe göre sırala (eski → yeni)
+    const sortedTransactions = [...transactions]
+      .filter(tx => tx.mainCategory === categoryName)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    sortedTransactions.forEach(tx => {
+      const assetKey = tx.assetName;
+      if (!categoryAssets[assetKey]) {
+        categoryAssets[assetKey] = {
+          totalQuantity: 0,
+          avgPriceInTRY: 0, // Ağırlıklı ortalama fiyat (TRY)
+          totalCostInTRY: 0, // Kalan varlığın toplam maliyeti
+          transactions: [],
+          symbol: tx.symbol || null,
+        };
       }
+      
+      // En güncel symbol'ü kullan
+      if (tx.symbol && !categoryAssets[assetKey].symbol) {
+        categoryAssets[assetKey].symbol = tx.symbol;
+      }
+      
+      const txCurrency = tx.currency || 'TRY';
+      const unitPriceInTRY = convertToTRY(tx.unitPrice, txCurrency, exchangeRates);
+      const costInTRY = tx.quantity * unitPriceInTRY;
+      
+      if (tx.type === 'buy') {
+        // ALIŞ: Ağırlıklı ortalama hesapla
+        // Yeni Avg = (Kalan Miktar × Eski Avg + Yeni Alış × Yeni Fiyat) / (Kalan + Yeni Alış)
+        const oldQuantity = categoryAssets[assetKey].totalQuantity;
+        const oldAvg = categoryAssets[assetKey].avgPriceInTRY;
+        const newQuantity = oldQuantity + tx.quantity;
+        
+        if (newQuantity > 0) {
+          categoryAssets[assetKey].avgPriceInTRY = 
+            (oldQuantity * oldAvg + tx.quantity * unitPriceInTRY) / newQuantity;
+          categoryAssets[assetKey].totalCostInTRY = 
+            categoryAssets[assetKey].avgPriceInTRY * newQuantity;
+        }
+        
+        categoryAssets[assetKey].totalQuantity = newQuantity;
+      } else if (tx.type === 'sell') {
+        // SATIŞ: Avg price değişmez, sadece miktar azalır
+        categoryAssets[assetKey].totalQuantity -= tx.quantity;
+        
+        // Total cost'u güncelle (avg price sabit kalır)
+        if (categoryAssets[assetKey].totalQuantity > 0) {
+          categoryAssets[assetKey].totalCostInTRY = 
+            categoryAssets[assetKey].avgPriceInTRY * categoryAssets[assetKey].totalQuantity;
+        } else {
+          categoryAssets[assetKey].totalCostInTRY = 0;
+          categoryAssets[assetKey].avgPriceInTRY = 0;
+        }
+      }
+      
+      categoryAssets[assetKey].transactions.push(tx);
     });
     
     return Object.entries(categoryAssets).filter(([_, data]) => data.totalQuantity > 0);
@@ -430,13 +460,8 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Kripto');
     
     return assets.map(([name, data], index) => {
-      // Ortalama alış fiyatı = Toplam alış maliyeti / Toplam alınan miktar
-      // Satışlar avg price'ı değiştirmez!
-      const totalBuyQuantity = data.transactions
-        .filter(tx => tx.type === 'buy')
-        .reduce((sum, tx) => sum + tx.quantity, 0);
-      
-      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
+      // Ortalama alış fiyatı artık collectCategoryAssets'ten geliyor (ağırlıklı ortalama)
+      const avgCostInTRY = data.avgPriceInTRY;
       
       // Kripto için prices objesinde ara
       const priceData = prices[name];
@@ -476,12 +501,8 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Altın');
     
     return assets.map(([name, data], index) => {
-      // Ortalama alış fiyatı hesaplama (sadece BUY)
-      const totalBuyQuantity = data.transactions
-        .filter(tx => tx.type === 'buy')
-        .reduce((sum, tx) => sum + tx.quantity, 0);
-      
-      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
+      // Ortalama alış fiyatı artık collectCategoryAssets'ten geliyor (ağırlıklı ortalama)
+      const avgCostInTRY = data.avgPriceInTRY;
       
       // Altın için prices objesinde ara
       const priceData = prices[name];
@@ -521,12 +542,8 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Borsa');
     
     return assets.map(([name, data], index) => {
-      // Ortalama alış fiyatı hesaplama (sadece BUY)
-      const totalBuyQuantity = data.transactions
-        .filter(tx => tx.type === 'buy')
-        .reduce((sum, tx) => sum + tx.quantity, 0);
-      
-      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
+      // Ortalama alış fiyatı artık collectCategoryAssets'ten geliyor (ağırlıklı ortalama)
+      const avgCostInTRY = data.avgPriceInTRY;
       
       // Borsa için prices objesinde ara
       const priceData = prices[name];
@@ -566,12 +583,8 @@ export default function DashboardScreen({ navigation }) {
     const assets = collectCategoryAssets('Döviz');
     
     return assets.map(([name, data], index) => {
-      // Ortalama alış fiyatı hesaplama (sadece BUY)
-      const totalBuyQuantity = data.transactions
-        .filter(tx => tx.type === 'buy')
-        .reduce((sum, tx) => sum + tx.quantity, 0);
-      
-      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
+      // Ortalama alış fiyatı artık collectCategoryAssets'ten geliyor (ağırlıklı ortalama)
+      const avgCostInTRY = data.avgPriceInTRY;
       
       // Döviz için prices objesinde ara
       const priceData = prices[name];
@@ -705,6 +718,8 @@ export default function DashboardScreen({ navigation }) {
           profitLossPercentage={periodProfitLoss.profitLossPercentage}
           selectedPeriod={selectedPeriod}
           onPeriodChange={setSelectedPeriod}
+          isBalanceHidden={isBalanceHidden}
+          onToggleBalance={() => setIsBalanceHidden(!isBalanceHidden)}
         />
 
         {/* Loading Indicator */}
@@ -777,7 +792,6 @@ export default function DashboardScreen({ navigation }) {
                 // currentPrice zaten getCategoryDetail'de hesaplanmış!
                 // Onu kullan, yoksa prices'tan al
                 let currentPrice = asset.currentPrice || null;
-                
                 console.log(`🎯 AssetDetailCard: ${asset.name}, currentPrice=${currentPrice}, priceData=`, priceData);
 
                 return (
@@ -786,6 +800,7 @@ export default function DashboardScreen({ navigation }) {
                     asset={asset}
                     currencySymbol={currencySymbol}
                     currentPrice={currentPrice}
+                    isBalanceHidden={isBalanceHidden}
                     onPress={() => {
                       // Bu varlığın transaction'larından API bilgilerini al
                       const assetTransactions = transactions.filter(

@@ -14,7 +14,8 @@ export default function AssetDetailCard({
   currencySymbol = '₺',
   onPress,
   currentPrice = null, // Anlık fiyat (display currency)
-  profitLoss = null // Kar/zarar verisi (opsiyonel)
+  profitLoss = null, // Kar/zarar verisi (opsiyonel)
+  isBalanceHidden = false // Gizlilik modu
 }) {
   // Kar/zarar hesaplama (sadece anlık fiyat varsa)
   const hasProfitLoss = asset.hasLivePrice && currentPrice && currentPrice > 0 && asset.avgPrice > 0;
@@ -83,10 +84,10 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Ort. Alış</Text>
         <Text style={styles.value}>
-          {currencySymbol}{asset.avgPrice.toLocaleString('tr-TR', { 
+          {isBalanceHidden ? '₺ *****' : `${currencySymbol}${asset.avgPrice.toLocaleString('tr-TR', { 
             maximumFractionDigits: 2,
             minimumFractionDigits: 2 
-          })}
+          })}`}
         </Text>
       </View>
 
@@ -95,10 +96,10 @@ export default function AssetDetailCard({
         <View style={styles.row}>
           <Text style={styles.label}>Anlık Fiyat</Text>
           <Text style={[styles.value, { color: COLORS.primary }]}>
-            {currencySymbol}{currentPrice.toLocaleString('tr-TR', { 
+            {isBalanceHidden ? '₺ *****' : `${currencySymbol}${currentPrice.toLocaleString('tr-TR', { 
               maximumFractionDigits: 2,
               minimumFractionDigits: 2 
-            })}
+            })}`}
           </Text>
         </View>
       )}
@@ -106,10 +107,10 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Toplam</Text>
         <Text style={[styles.value, styles.totalValue]}>
-          {currencySymbol}{asset.value.toLocaleString('tr-TR', {
+          {isBalanceHidden ? '₺ *****' : `${currencySymbol}${asset.value.toLocaleString('tr-TR', {
             maximumFractionDigits: 0,
             minimumFractionDigits: 0
-          })}
+          })}`}
         </Text>
       </View>
 
@@ -120,13 +121,13 @@ export default function AssetDetailCard({
             Kar/Zarar
           </Text>
           <Text style={[styles.profitLossText, { color: plColor }]}>
-            {plIcon} {plAmount >= 0 ? '+' : ''}{currencySymbol}{Math.abs(plAmount).toLocaleString('tr-TR', {
+            {isBalanceHidden ? '*****' : `${plIcon} ${plAmount >= 0 ? '+' : ''}${currencySymbol}${Math.abs(plAmount).toLocaleString('tr-TR', {
               maximumFractionDigits: 0,
               minimumFractionDigits: 0
-            })}
+            })}`}
           </Text>
           <Text style={[styles.profitLossPercentage, { color: plColor }]}>
-            {plPercentage >= 0 ? '+' : ''}{plPercentage.toFixed(2)}%
+            {isBalanceHidden ? '**.**%' : `${plPercentage >= 0 ? '+' : ''}${plPercentage.toFixed(2)}%`}
           </Text>
         </View>
       )}

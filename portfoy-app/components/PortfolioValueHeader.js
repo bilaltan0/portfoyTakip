@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants/theme';
+import { EyeIcon, EyeOffIcon } from './icons';
 
 const PERIODS = [
   { id: '1D', label: '1G', days: 1 },
@@ -23,7 +24,9 @@ const PortfolioValueHeader = ({
   profitLoss = 0,
   profitLossPercentage = 0,
   selectedPeriod = '1D',
-  onPeriodChange
+  onPeriodChange,
+  isBalanceHidden = false,
+  onToggleBalance
 }) => {
   const handlePeriodSelect = (periodId) => {
     if (onPeriodChange) {
@@ -41,9 +44,23 @@ const PortfolioValueHeader = ({
       <View style={styles.valueRow}>
         {/* Sol: Toplam Değer */}
         <View style={styles.valueSection}>
-          <Text style={styles.totalValue}>
-            {currencySymbol}{Math.round(totalValue).toLocaleString('tr-TR')}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={styles.totalValue}>
+              {isBalanceHidden ? '₺ *****' : `${currencySymbol}${Math.round(totalValue).toLocaleString('tr-TR')}`}
+            </Text>
+            {/* Göz İkonu */}
+            <TouchableOpacity 
+              onPress={onToggleBalance}
+              style={styles.eyeButton}
+              activeOpacity={0.6}
+            >
+              {isBalanceHidden ? (
+                <EyeOffIcon size={20} color={COLORS.textSecondary} />
+              ) : (
+                <EyeIcon size={20} color={COLORS.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
           <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
         </View>
 
@@ -56,13 +73,13 @@ const PortfolioValueHeader = ({
               </Text>
             </View>
             <Text style={[styles.profitPercentage, { color: profitColor }]}>
-              {profitIcon} {Math.abs(profitLossPercentage).toFixed(2)}%
+              {profitIcon} {isBalanceHidden ? '**.**' : Math.abs(profitLossPercentage).toFixed(2)}%
             </Text>
             <Text style={[styles.profitAmount, { color: profitColor }]}>
-              {isProfit ? '+' : ''}{currencySymbol}{Math.abs(profitLoss).toLocaleString('tr-TR', {
+              {isBalanceHidden ? '₺ *****' : `${isProfit ? '+' : ''}${currencySymbol}${Math.abs(profitLoss).toLocaleString('tr-TR', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
-              })}
+              })}`}
             </Text>
           </View>
         </View>
@@ -213,6 +230,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 2,
     borderColor: COLORS.white,
+  },
+  eyeButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

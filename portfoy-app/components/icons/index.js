@@ -23,6 +23,8 @@ export { default as ChevronDownIcon } from './ChevronDownIcon';
 export { default as TrashIcon } from './TrashIcon';
 export { default as HelpCircleIcon } from './HelpCircleIcon';
 export { default as InfoIcon } from './InfoIcon';
+export { default as EyeIcon } from './EyeIcon';
+export { default as EyeOffIcon } from './EyeOffIcon';
 
 // Asset Icons
 export { default as GoldIcon } from './GoldIcon';
