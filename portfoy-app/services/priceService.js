@@ -4,94 +4,23 @@
  * Farklı API'lerden varlık fiyatlarını çeker ve cache'ler.
  * 
  * Kullanılan API'ler:
- * - CoinGecko: Kripto paralar (ücretsiz, rate limit: 10-50/dakika)
- * - Yahoo Finance: Hisse senetleri ve altın ons fiyatı (ücretsiz)
- * - Exchange Rate API: Döviz kurları (ücretsiz, 1500 istek/ay)
+ * - Binance: Kripto paralar (ücretsiz, rate limit yok)
+ * - Yahoo Finance: Hisse senetleri (ücretsiz)
+ * - TCMB: Döviz kurları (ücretsiz)
+ * - Metals API: Altın fiyatları (ücretsiz)
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Cache yapılandırması
-const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika (Rate Limit optimizasyonu)
+const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 const CACHE_KEY_PREFIX = 'price_cache_';
-
-// Rate Limit yönetimi
-let lastCoinGeckoCall = 0;
-const COINGECKO_RATE_LIMIT_DELAY = 5000; // 5 saniye (dakikada max 12 istek - daha güvenli)
 
 // In-memory cache
 const memoryCache = new Map();
 
 /**
- * CoinGecko API'den kripto fiyatı çeker (BATCH destekli)
- * @param {string|string[]} coinIds - 'bitcoin' veya ['bitcoin', 'ethereum']
- * @returns {Promise<Object>} Coin ID'ye göre fiyat map'i
- */
-const fetchCoinGeckoPrice = async (coinIds) => {
-  try {
-    // Rate Limit kontrolü - son çağrıdan 2 saniye geçmemişse bekle
-    const now = Date.now();
-    const timeSinceLastCall = now - lastCoinGeckoCall;
-    if (timeSinceLastCall < COINGECKO_RATE_LIMIT_DELAY) {
-      const waitTime = COINGECKO_RATE_LIMIT_DELAY - timeSinceLastCall;
-      console.log(`⏳ CoinGecko Rate Limit: ${waitTime}ms bekleniyor...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-    
-    // Tekil veya çoklu ID desteği
-    const idsArray = Array.isArray(coinIds) ? coinIds : [coinIds];
-    const idsString = idsArray.join(',');
-    
-    lastCoinGeckoCall = Date.now(); // Son çağrı zamanını kaydet
-    
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${idsString}&vs_currencies=usd,try`
-    );
-    
-    if (!response.ok) {
-      // 429 Rate Limit hatası için özel mesaj
-      if (response.status === 429) {
-        console.warn('⚠️ CoinGecko Rate Limit (429)! Cache kullanılacak.');
-      }
-      throw new Error(`CoinGecko API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const timestamp = Date.now();
-    
-    console.log(`📥 CoinGecko API yanıt:`, JSON.stringify(data, null, 2));
-    
-    // Tekil ID için eski format döndür (geriye uyumluluk)
-    if (idsArray.length === 1) {
-      const coinId = idsArray[0];
-      const result = {
-        usd: data[coinId]?.usd || 0,
-        try: data[coinId]?.try || 0,
-        timestamp,
-      };
-      console.log(`💰 CoinGecko ${coinId}: USD=${result.usd}, TRY=${result.try}`);
-      return result;
-    }
-    
-    // Çoklu ID için map döndür
-    const result = {};
-    idsArray.forEach(coinId => {
-      result[coinId] = {
-        usd: data[coinId]?.usd || 0,
-        try: data[coinId]?.try || 0,
-        timestamp,
-      };
-    });
-    
-    return result;
-  } catch (error) {
-    console.error('CoinGecko fetch error:', error);
-    throw error;
-  }
-};
-
-/**
- * Binance API'den kripto fiyatı çeker (Fallback için)
+ * Binance API'den kripto fiyatı çeker
  * @param {string} symbolOrName - 'ETH', 'AVAX' veya 'ethereum', 'avalanche-2' gibi
  * @returns {Promise<Object>} USD fiyatı
  */
@@ -508,9 +437,10 @@ export const fetchAssetPrice = async (assetName, assetInfo = null) => {
   try {
     switch (mapping.provider) {
       case 'coingecko':
-        console.log(`🌐 CoinGecko API çağrısı yapılıyor: id="${mapping.id}"`);
-        priceData = await fetchCoinGeckoPrice(mapping.id);
-        console.log(`✅ CoinGecko yanıt:`, priceData);
+        console.log(`🔶 Binance API çağrısı yapılıyor: symbol="${mapping.symbol}"`);
+        const searchTerm = mapping.symbol || mapping.id;
+        priceData = await fetchBinancePrice(searchTerm);
+        console.log(`✅ Binance yanıt:`, priceData);
         break;
         
       case 'yahoo':
@@ -535,85 +465,27 @@ export const fetchAssetPrice = async (assetName, assetInfo = null) => {
         throw new Error(`Unknown provider: ${mapping.provider}`);
     }
   } catch (error) {
-    // 429 Rate Limit hatası veya CoinGecko hatası
-    if (error.message.includes('429') || error.message.includes('CoinGecko')) {
-      console.warn(`⚠️ CoinGecko başarısız! ${assetName} için alternatif yöntemler deneniyor...`);
-      
-      // 1. Binance API'yi dene (sadece kripto için)
-      if (mapping.provider === 'coingecko') {
-        try {
-          // Symbol'ü veya CoinGecko ID'yi Binance'e gönder
-          const searchTerm = mapping.symbol || mapping.id;
-          console.log(`🔶 Binance fallback deneniyor: ${searchTerm}`);
-          
-          priceData = await fetchBinancePrice(searchTerm);
-          console.log(`✅ Binance'den fiyat alındı:`, priceData);
-          
-          // Başarılı! Devam et (cache'e kaydet)
-          const currencyLower = mapping.currency.toLowerCase();
-          const priceObject = {
-            assetName,
-            price: priceData[currencyLower] || priceData.usd || 0,
-            currency: mapping.currency,
-            timestamp: priceData.timestamp,
-            isMock: false,
-            source: 'binance', // Binance'den geldiğini belirt
-          };
-          
-          await setCachedPrice(assetName, priceObject);
-          return priceObject;
-        } catch (binanceError) {
-          console.warn(`⚠️ Binance da başarısız oldu:`, binanceError.message);
-          // Devam et, cache kontrolüne geç
-        }
-      }
-      
-      // 2. Eski cache'i kullan (süre dolmuş olsa bile)
-      console.warn(`⚠️ Rate Limit! ${assetName} için eski cache aranıyor...`);
-      
-      // Memory cache'de var mı? (süre dolmuş olabilir)
-      const oldMemCache = memoryCache.get(assetName);
-      if (oldMemCache) {
-        console.log(`✅ Eski memory cache kullanılıyor: ${assetName}`);
-        return oldMemCache;
-      }
-      
-      // AsyncStorage'da var mı?
-      try {
-        const oldStorageCache = await AsyncStorage.getItem(`${CACHE_KEY_PREFIX}${assetName}`);
-        if (oldStorageCache) {
-          const parsed = JSON.parse(oldStorageCache);
-          console.log(`✅ Eski storage cache kullanılıyor: ${assetName}`);
-          return parsed;
-        }
-      } catch (e) {
-        // Cache okunamadı
-      }
-      
-      // Cache de yok - Rate limit hatası, fiyat çekilemedi
-      console.error(`❌ ${assetName} için hiç cache yok ve Rate Limit aktif!`);
-      
-      // Fiyat çekilemediğinde NULL döndür (kullanıcı manuel girecek)
-      const fallbackPrice = {
-        assetName,
-        price: null, // ❌ Fiyat yok - kullanıcı manuel girmeli
-        currency: mapping.currency,
-        timestamp: Date.now(),
-        isMock: false,
-        rateLimitError: true,
-        message: 'Fiyat şu an çekilemiyor. Lütfen manuel olarak girin veya daha sonra tekrar deneyin.'
-      };
-      
-      console.log(`⚠️ Rate Limit - Fiyat yok, kullanıcı manuel girecek:`, fallbackPrice);
-      
-      // Fallback'i cache'e KAYDETME - çünkü gerçek fiyat değil
-      
-      return fallbackPrice;
+    console.error(`❌ ${assetName} fiyat çekme hatası:`, error.message);
+    
+    // Cache'i kontrol et
+    const cachedPrice = await getCachedPrice(assetName);
+    if (cachedPrice) {
+      console.log(`✅ Cache'den kullanılıyor: ${assetName}`);
+      return cachedPrice;
     }
     
-    // Diğer hatalar için (network, API down vb.) - hatayı yukarı fırlat
-    console.error(`Fiyat çekme hatası:`, error);
-    throw error;
+    // Cache de yok - fiyat çekilemedi
+    console.error(`❌ ${assetName} için cache yok ve API başarısız!`);
+    
+    // Fiyat çekilemediğinde NULL döndür
+    return {
+      assetName,
+      price: null,
+      currency: mapping.currency,
+      timestamp: Date.now(),
+      isMock: false,
+      error: true,
+    };
   }
   
   // Price objesi oluştur
