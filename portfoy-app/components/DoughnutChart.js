@@ -16,7 +16,8 @@ export default function DoughnutChart({
   centerLabel = "Toplam",
   size = 180,
   strokeWidth = 20,
-  currencySymbol = '₺'
+  currencySymbol = '₺',
+  isBalanceHidden = false
 }) {
   const radius = (50 - strokeWidth / 2);
   const circumference = 2 * Math.PI * radius;
@@ -83,7 +84,7 @@ export default function DoughnutChart({
       <View style={styles.center}>
         <Text style={styles.centerLabel}>{centerLabel}</Text>
         <Text style={styles.centerValue}>
-          {currencySymbol}{Math.round(centerValue).toLocaleString('tr-TR')}
+          {isBalanceHidden ? '₺ *****' : `${currencySymbol}${Math.round(centerValue).toLocaleString('tr-TR')}`}
         </Text>
       </View>
     </View>

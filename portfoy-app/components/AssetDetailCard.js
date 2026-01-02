@@ -74,7 +74,7 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>{asset.quantityLabel}</Text>
         <Text style={styles.value}>
-          {asset.quantity.toLocaleString('tr-TR', { 
+          {isBalanceHidden ? '***' : asset.quantity.toLocaleString('tr-TR', { 
             minimumFractionDigits: 2, 
             maximumFractionDigits: 4 
           })}
@@ -84,10 +84,10 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Ort. Alış</Text>
         <Text style={styles.value}>
-          {isBalanceHidden ? '₺ *****' : `${currencySymbol}${asset.avgPrice.toLocaleString('tr-TR', { 
+          {currencySymbol}{asset.avgPrice.toLocaleString('tr-TR', { 
             maximumFractionDigits: 2,
             minimumFractionDigits: 2 
-          })}`}
+          })}
         </Text>
       </View>
 
@@ -96,10 +96,10 @@ export default function AssetDetailCard({
         <View style={styles.row}>
           <Text style={styles.label}>Anlık Fiyat</Text>
           <Text style={[styles.value, { color: COLORS.primary }]}>
-            {isBalanceHidden ? '₺ *****' : `${currencySymbol}${currentPrice.toLocaleString('tr-TR', { 
+            {currencySymbol}{currentPrice.toLocaleString('tr-TR', { 
               maximumFractionDigits: 2,
               minimumFractionDigits: 2 
-            })}`}
+            })}
           </Text>
         </View>
       )}
@@ -121,13 +121,13 @@ export default function AssetDetailCard({
             Kar/Zarar
           </Text>
           <Text style={[styles.profitLossText, { color: plColor }]}>
-            {isBalanceHidden ? '*****' : `${plIcon} ${plAmount >= 0 ? '+' : ''}${currencySymbol}${Math.abs(plAmount).toLocaleString('tr-TR', {
+            {isBalanceHidden ? '₺ *****' : `${plIcon} ${plAmount >= 0 ? '+' : ''}${currencySymbol}${Math.abs(plAmount).toLocaleString('tr-TR', {
               maximumFractionDigits: 0,
               minimumFractionDigits: 0
             })}`}
           </Text>
           <Text style={[styles.profitLossPercentage, { color: plColor }]}>
-            {isBalanceHidden ? '**.**%' : `${plPercentage >= 0 ? '+' : ''}${plPercentage.toFixed(2)}%`}
+            {plPercentage >= 0 ? '+' : ''}{plPercentage.toFixed(2)}%
           </Text>
         </View>
       )}

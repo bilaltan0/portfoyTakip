@@ -73,7 +73,7 @@ const PortfolioValueHeader = ({
               </Text>
             </View>
             <Text style={[styles.profitPercentage, { color: profitColor }]}>
-              {profitIcon} {isBalanceHidden ? '**.**' : Math.abs(profitLossPercentage).toFixed(2)}%
+              {profitIcon} {Math.abs(profitLossPercentage).toFixed(2)}%
             </Text>
             <Text style={[styles.profitAmount, { color: profitColor }]}>
               {isBalanceHidden ? '₺ *****' : `${isProfit ? '+' : ''}${currencySymbol}${Math.abs(profitLoss).toLocaleString('tr-TR', {

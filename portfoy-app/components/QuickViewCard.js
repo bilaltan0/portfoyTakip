@@ -17,7 +17,8 @@ export default function QuickViewCard({
   change = 0, 
   color,
   currencySymbol = '₺',
-  onPress 
+  onPress,
+  isBalanceHidden = false
 }) {
   const isPositive = change >= 0;
   
@@ -34,7 +35,7 @@ export default function QuickViewCard({
       <Text style={styles.name}>{name}</Text>
       
       <Text style={styles.value}>
-        {currencySymbol}{value.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        {isBalanceHidden ? '₺ *****' : `${currencySymbol}${value.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
       </Text>
       
       <View style={styles.changeContainer}>
