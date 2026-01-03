@@ -45,6 +45,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { COLORS, MOCK_ASSETS, CURRENCY_SYMBOLS, EXCHANGE_RATES } from '../constants/theme';
 import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '../components/icons';
@@ -67,6 +68,10 @@ import { useAssetPrices } from '../hooks/useAssetPrices';
 
 // Services
 import { getExchangeRates, convertToTRY, convertFromTRY } from '../services/exchangeRateService';
+
+// Storage
+import { loadData, saveData } from '../utils/storage';
+import { STORAGE_KEYS } from '../constants/storage.constants';
 
 // Utility fonksiyonları
 import { getQuantityLabel } from '../utils/assetUtils';
@@ -123,6 +128,38 @@ export default function DashboardScreen({ navigation }) {
 
   // Para birimi sembolü
   const currencySymbol = CURRENCY_SYMBOLS[displayCurrency] || '₺';
+
+  // Gizlilik durumunu yükle (ilk açılışta VE her focus'ta)
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadBalanceVisibility = async () => {
+        try {
+          const savedState = await loadData(STORAGE_KEYS.BALANCE_HIDDEN, false);
+          setIsBalanceHidden(savedState);
+          console.log('👁️ Balance visibility loaded on focus:', savedState);
+        } catch (error) {
+          console.error('❌ Failed to load balance visibility:', error);
+        }
+      };
+      
+      loadBalanceVisibility();
+    }, [])
+  );
+
+  // Gizlilik durumunu kaydet (değiştiğinde)
+  useEffect(() => {
+    const saveBalanceVisibility = async () => {
+      try {
+        await saveData(STORAGE_KEYS.BALANCE_HIDDEN, isBalanceHidden);
+        console.log('💾 Balance visibility saved:', isBalanceHidden);
+      } catch (error) {
+        console.error('❌ Failed to save balance visibility:', error);
+      }
+    };
+    
+    // İlk yüklemede kaydetme (sadece değişikliklerde)
+    saveBalanceVisibility();
+  }, [isBalanceHidden]);
 
   // Döviz kurlarını yükle
   useEffect(() => {
