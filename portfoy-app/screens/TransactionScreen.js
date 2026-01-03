@@ -19,6 +19,7 @@ import {
   Keyboard,
   Animated
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
@@ -398,8 +399,20 @@ export default function TransactionScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
+      
+      {/* Header - Professional Style */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>💼 Yeni İşlem</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -416,10 +429,6 @@ export default function TransactionScreen({ route, navigation }) {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-          {/* Header - Compact */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>💼 Yeni İşlem</Text>
-          </View>
 
           {/* Ana Kategori */}
           <View style={styles.section}>
@@ -714,14 +723,44 @@ export default function TransactionScreen({ route, navigation }) {
           </View>
         </Animated.View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.white,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: 56,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: COLORS.darkBlue,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.darkBlue,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   fixedButtonContainer: {
     position: 'absolute',
@@ -743,15 +782,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: SCREEN_WIDTH * 0.05, // Responsive padding (%5 of screen width)
     paddingBottom: SCREEN_HEIGHT * 0.18, // Responsive bottom padding (%18 of screen height)
-  },
-  header: {
-    marginBottom: SCREEN_HEIGHT * 0.015, // Responsive (küçük ekranlarda küçülür)
-  },
-  headerTitle: {
-    fontSize: SCREEN_WIDTH * 0.07, // Responsive font size (%7 of screen width)
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -0.5,
   },
   section: {
     marginBottom: SCREEN_HEIGHT * 0.022, // Responsive margin

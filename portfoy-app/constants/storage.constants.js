@@ -23,6 +23,7 @@ export const STORAGE_KEYS = {
   CHART_TYPE: '@portfolio_chart_type',
   DEFAULT_VIEW: '@portfolio_default_view',
   SORT_PREFERENCE: '@portfolio_sort',
+  BALANCE_HIDDEN: '@portfolio_balance_hidden', // Gizlilik modu durumu
   
   // Cache
   LAST_SYNC: '@portfolio_last_sync',
