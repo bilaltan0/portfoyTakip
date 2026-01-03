@@ -35,7 +35,11 @@ import { fetchAssetPrice } from '../services/priceService';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TransactionScreen({ route, navigation }) {
-  const { addTransaction, categories, activePortfolio } = usePortfolio();
+  const { addTransaction, updateTransaction, categories, activePortfolio } = usePortfolio();
+
+  // Edit mode kontrolü
+  const editingTransaction = route?.params?.editingTransaction;
+  const isEditMode = !!editingTransaction;
 
   // Form state
   const [mainCategory, setMainCategory] = useState('');
@@ -89,9 +93,39 @@ export default function TransactionScreen({ route, navigation }) {
     });
   };
   
-  // Ekran her focus olduğunda params'ı kontrol et ve form alanlarını doldur
+  // Edit mode: Formu doldur
+  useEffect(() => {
+    if (editingTransaction) {
+      console.log('✏️ Edit mode aktif, form dolduruluyor:', editingTransaction);
+      setMainCategory(editingTransaction.mainCategory || '');
+      setAssetName(editingTransaction.assetName || '');
+      setQuantity(editingTransaction.quantity.toString());
+      setUnitPrice(editingTransaction.unitPrice.toString());
+      setCurrency(editingTransaction.currency || 'TRY');
+      setNote(editingTransaction.note || '');
+      
+      // Asset info varsa set et
+      if (editingTransaction.symbol) {
+        setSelectedAssetInfo({
+          symbol: editingTransaction.symbol,
+          provider: editingTransaction.provider,
+          id: editingTransaction.apiId,
+          currency: editingTransaction.apiCurrency,
+          category: editingTransaction.mainCategory,
+          fullName: editingTransaction.assetName
+        });
+      }
+    }
+  }, [editingTransaction]);
+  
+  // Preselected asset için ayrı useEffect
   useFocusEffect(
     React.useCallback(() => {
+      // Edit mode'daysa preselect çalıştırma
+      if (editingTransaction) {
+        return;
+      }
+      
       const preselectedAsset = route?.params?.preselectedAsset;
       
       if (preselectedAsset) {
@@ -111,12 +145,12 @@ export default function TransactionScreen({ route, navigation }) {
           isPreselectingRef.current = false;
         }, 100);
       }
-    }, [route?.params, navigation])
+    }, [route?.params?.preselectedAsset, navigation, editingTransaction])
   );
 
-  // Ana kategori değiştiğinde varlık adını temizle (sadece manuel değişiklikse)
+  // Ana kategori değiştiğinde varlık adını temizle (sadece manuel değişiklikse ve edit mode değilse)
   useEffect(() => {
-    if (!isPreselectingRef.current) {
+    if (!isPreselectingRef.current && !isEditMode) {
       setAssetName('');
       setSearchResults([]);
       setShowDropdown(false);
@@ -312,6 +346,40 @@ export default function TransactionScreen({ route, navigation }) {
   const handleSubmit = async (transactionType) => {
     if (!validateForm()) return;
 
+    // Edit mode: Mevcut transaction'ı güncelle
+    if (isEditMode) {
+      const updatedTransaction = {
+        mainCategory,
+        assetName: assetName.trim(),
+        symbol: selectedAssetInfo?.symbol || editingTransaction.symbol || null,
+        provider: selectedAssetInfo?.provider || editingTransaction.provider || null,
+        apiId: selectedAssetInfo?.id || editingTransaction.apiId || null,
+        apiCurrency: selectedAssetInfo?.currency || editingTransaction.apiCurrency || null,
+        type: transactionType,
+        quantity: parseFloat(quantity),
+        unitPrice: parseFloat(unitPrice),
+        currency,
+        note: note.trim(),
+        date: editingTransaction.date, // Orijinal tarih korunur
+      };
+
+      console.log('✏️ Transaction güncelleniyor:', editingTransaction.id);
+
+      const success = await updateTransaction(editingTransaction.id, updatedTransaction);
+
+      if (success) {
+        showToast('İşlem güncellendi', 'success');
+        // İşlem geçmişine geri dön
+        setTimeout(() => {
+          navigation.navigate('TransactionHistory');
+        }, 1000);
+      } else {
+        Alert.alert('Hata', 'İşlem güncellenemedi. Lütfen tekrar deneyin.');
+      }
+      return;
+    }
+
+    // Normal mode: Yeni transaction ekle
     const transaction = {
       mainCategory,
       assetName: assetName.trim(),
@@ -410,7 +478,9 @@ export default function TransactionScreen({ route, navigation }) {
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>💼 Yeni İşlem</Text>
+        <Text style={styles.headerTitle}>
+          {isEditMode ? '✏️ İşlem Düzenle' : '💼 Yeni İşlem'}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
       
@@ -685,16 +755,28 @@ export default function TransactionScreen({ route, navigation }) {
         {/* Fixed Action Buttons */}
         <View style={styles.fixedButtonContainer}>
           <View style={styles.actionButtonsRow}>
-            <ActionButton
-              label="📈 Alış Yap"
-              variant="success"
-              onPress={handleBuy}
-            />
-            <ActionButton
-              label="📉 Satış Yap"
-              variant="danger"
-              onPress={handleSell}
-            />
+            {isEditMode ? (
+              // Edit mode: Sadece Güncelle butonu
+              <ActionButton
+                label={`✏️ ${editingTransaction.type === 'buy' ? 'Alış' : 'Satış'} İşlemini Güncelle`}
+                variant={editingTransaction.type === 'buy' ? 'success' : 'danger'}
+                onPress={() => handleSubmit(editingTransaction.type)}
+              />
+            ) : (
+              // Normal mode: Alış ve Satış butonları
+              <>
+                <ActionButton
+                  label="📈 Alış Yap"
+                  variant="success"
+                  onPress={handleBuy}
+                />
+                <ActionButton
+                  label="📉 Satış Yap"
+                  variant="danger"
+                  onPress={handleSell}
+                />
+              </>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>

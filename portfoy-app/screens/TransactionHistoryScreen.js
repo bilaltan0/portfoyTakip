@@ -4,8 +4,8 @@
  * Aktif portföyün tüm alım-satım işlemlerini listeler
  */
 
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, FONTS } from '../constants/theme';
@@ -13,7 +13,46 @@ import { usePortfolio } from '../context/PortfolioContext';
 import TransactionItem from '../components/TransactionItem';
 
 export default function TransactionHistoryScreen({ navigation }) {
-  const { activePortfolio } = usePortfolio();
+  const { activePortfolio, deleteTransaction, updateTransaction } = usePortfolio();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // İşlem silme
+  const handleDelete = (transaction) => {
+    Alert.alert(
+      '⚠️ İşlem Sil',
+      `Bu işlemi silmek istediğinizden emin misiniz?\n\n${transaction.type === 'buy' ? 'Alış' : 'Satış'} - ${transaction.assetName}\n${transaction.quantity} adet × ${transaction.currency} ${transaction.unitPrice.toFixed(2)}`,
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            const success = await deleteTransaction(transaction.id);
+            setIsDeleting(false);
+            
+            if (success) {
+              Alert.alert('✅ Başarılı', 'İşlem silindi');
+            } else {
+              Alert.alert('❌ Hata', 'İşlem silinirken bir hata oluştu');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // İşlem düzenleme - TransactionScreen'e direkt yönlendir
+  const handleEdit = (transaction) => {
+    // Ana navigator'a dön, sonra Transaction tab'ına git
+    navigation.navigate('Main', { 
+      screen: 'İşlem Yap',
+      params: { editingTransaction: transaction }
+    });
+  };
 
   if (!activePortfolio) {
     return (
@@ -61,7 +100,12 @@ export default function TransactionHistoryScreen({ navigation }) {
         ) : (
           <View style={styles.transactionList}>
             {transactions.map((transaction, index) => (
-              <TransactionItem key={index} transaction={transaction} />
+              <TransactionItem 
+                key={transaction.id || index} 
+                transaction={transaction}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             ))}
           </View>
         )}

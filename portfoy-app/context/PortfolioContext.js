@@ -216,13 +216,64 @@ export function PortfolioProvider({ children }) {
    * İşlem sil (aktif portföyden)
    * @param {string} transactionId - Silinecek işlem ID'si
    */
-  const deleteTransaction = (transactionId) => {
-    setPortfolios(prev => prev.map(portfolio => 
-      portfolio.id === activePortfolioId
-        ? { ...portfolio, transactions: portfolio.transactions.filter(t => t.id !== transactionId) }
-        : portfolio
-    ));
-    console.log('🗑️ İşlem silindi:', transactionId);
+  const deleteTransaction = async (transactionId) => {
+    try {
+      const updatedPortfolios = portfolios.map(portfolio => 
+        portfolio.id === activePortfolioId
+          ? { ...portfolio, transactions: portfolio.transactions.filter(t => t.id !== transactionId) }
+          : portfolio
+      );
+      
+      setPortfolios(updatedPortfolios);
+      
+      // AsyncStorage'a kaydet
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PORTFOLIOS,
+        JSON.stringify(updatedPortfolios)
+      );
+      
+      console.log('🗑️ İşlem silindi ve kaydedildi:', transactionId);
+      return true;
+    } catch (error) {
+      console.error('❌ İşlem silme hatası:', error);
+      return false;
+    }
+  };
+
+  /**
+   * İşlem güncelle (aktif portföyden)
+   * @param {string} transactionId - Güncellenecek işlem ID'si
+   * @param {object} updatedData - Yeni işlem verileri
+   */
+  const updateTransaction = async (transactionId, updatedData) => {
+    try {
+      const updatedPortfolios = portfolios.map(portfolio => 
+        portfolio.id === activePortfolioId
+          ? {
+              ...portfolio,
+              transactions: portfolio.transactions.map(t =>
+                t.id === transactionId
+                  ? { ...t, ...updatedData, id: transactionId } // ID'yi koru
+                  : t
+              )
+            }
+          : portfolio
+      );
+      
+      setPortfolios(updatedPortfolios);
+      
+      // AsyncStorage'a kaydet
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PORTFOLIOS,
+        JSON.stringify(updatedPortfolios)
+      );
+      
+      console.log('✏️ İşlem güncellendi ve kaydedildi:', transactionId);
+      return true;
+    } catch (error) {
+      console.error('❌ İşlem güncelleme hatası:', error);
+      return false;
+    }
   };
 
   /**
@@ -419,6 +470,7 @@ export function PortfolioProvider({ children }) {
     // Transaction Actions
     addTransaction,
     deleteTransaction,
+    updateTransaction,
     
     // Other Actions
     addCategory,

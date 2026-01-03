@@ -5,23 +5,32 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { TrendingUp, TrendingDown } from 'lucide-react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { TrendingUp, TrendingDown, Edit2, Trash2 } from 'lucide-react-native';
 import { COLORS } from '../constants/theme';
 import { getShortAssetName } from '../utils/assetUtils';
 
-export default function TransactionItem({ transaction }) {
+export default function TransactionItem({ transaction, onEdit, onDelete }) {
   const isBuy = transaction.type === 'buy';
   const date = new Date(transaction.date);
-  const dateStr = date.toLocaleDateString('tr-TR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-  const timeStr = date.toLocaleTimeString('tr-TR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  
+  // Sadece gün göster
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const txDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.floor((today - txDate) / (1000 * 60 * 60 * 24));
+  
+  let dateDisplay;
+  if (diffDays === 0) {
+    dateDisplay = 'Bugün';
+  } else if (diffDays === 1) {
+    dateDisplay = 'Dün';
+  } else {
+    dateDisplay = date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'long',
+    });
+  }
 
   const shortAssetName = getShortAssetName(transaction.assetName);
   const unitPrice = transaction.unitPrice.toFixed(2);
@@ -34,55 +43,76 @@ export default function TransactionItem({ transaction }) {
   };
   const currencySymbol = currencySymbols[transaction.currency] || transaction.currency;
 
+  // Sembol varsa göster, yoksa kısa isim
+  const displayName = transaction.symbol || shortAssetName;
+
+  // Miktar formatı - daha okunur
+  const formattedQuantity = transaction.quantity.toLocaleString('tr-TR', { 
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2 
+  });
+
   return (
     <View style={styles.item}>
-      {/* Sol: İkon ve Bilgi */}
-      <View style={styles.left}>
-        <View style={[
-          styles.iconContainer,
-          isBuy ? styles.iconBuy : styles.iconSell
-        ]}>
-          {isBuy ? (
-            <TrendingUp size={20} color={COLORS.success} />
-          ) : (
-            <TrendingDown size={20} color={COLORS.danger} />
-          )}
-        </View>
-        <View style={styles.info}>
-          <Text style={styles.type}>
-            {isBuy ? 'Alış' : 'Satış'}
-          </Text>
-          <Text style={styles.date}>
-            {dateStr} • {timeStr}
-          </Text>
-        </View>
-      </View>
-
-      {/* Orta: Varlık ve Kategori */}
-      <View style={styles.center}>
-        <Text style={styles.assetName}>{shortAssetName}</Text>
-        <Text style={styles.category}>{transaction.mainCategory}</Text>
-      </View>
-
-      {/* Sağ: Miktar ve Fiyat */}
-      <View style={styles.right}>
-        <Text style={styles.quantity}>
-          {transaction.quantity.toLocaleString('tr-TR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })} adet
-        </Text>
-        <Text style={[
-          styles.price,
-          isBuy ? styles.pricePositive : styles.priceNegative
-        ]}>
-          {isBuy ? '+' : '-'}{currencySymbol}{unitPrice}
-        </Text>
-        {transaction.note && (
-          <Text style={styles.note} numberOfLines={1}>
-            💬 {transaction.note}
-          </Text>
+      {/* Sol: İkon */}
+      <View style={[
+        styles.iconContainer,
+        isBuy ? styles.iconBuy : styles.iconSell
+      ]}>
+        {isBuy ? (
+          <TrendingUp size={18} color={COLORS.success} />
+        ) : (
+          <TrendingDown size={18} color={COLORS.danger} />
         )}
+      </View>
+
+      {/* Orta: Varlık Bilgisi */}
+      <View style={styles.content}>
+        <View style={styles.topRow}>
+          <Text style={styles.assetSymbol} numberOfLines={1}>
+            {displayName}
+          </Text>
+          <Text style={[
+            styles.price,
+            isBuy ? styles.pricePositive : styles.priceNegative
+          ]}>
+            {isBuy ? '+' : ''}{currencySymbol}{unitPrice}
+          </Text>
+        </View>
+        <View style={styles.bottomRow}>
+          <Text style={styles.transactionType}>
+            {isBuy ? '📈 Alış' : '📉 Satış'}
+          </Text>
+          <Text style={styles.separator}>•</Text>
+          <Text style={styles.quantity}>
+            {formattedQuantity} adet
+          </Text>
+          <Text style={styles.separator}>•</Text>
+          <Text style={styles.time}>
+            {dateDisplay}
+          </Text>
+        </View>
+      </View>
+
+      {/* Sağ: Aksiyon Butonları */}
+      <View style={styles.actions}>
+        {/* Düzenle Butonu */}
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => onEdit && onEdit(transaction)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Edit2 size={18} color={COLORS.primary} />
+        </TouchableOpacity>
+
+        {/* Sil Butonu */}
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => onDelete && onDelete(transaction)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Trash2 size={18} color={COLORS.danger} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -91,10 +121,11 @@ export default function TransactionItem({ transaction }) {
 const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.white,
-    padding: 16,
+    padding: 12,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -102,19 +133,14 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f0f0f0',
-  },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
+    gap: 10,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   iconBuy: {
     backgroundColor: '#D1FAE5',
@@ -122,47 +148,26 @@ const styles = StyleSheet.create({
   iconSell: {
     backgroundColor: '#FEE2E2',
   },
-  info: {
-    justifyContent: 'center',
-  },
-  type: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  date: {
-    fontSize: 11,
-    color: COLORS.mediumGray,
-  },
-  center: {
+  content: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
+    minWidth: 0,
   },
-  assetName: {
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  assetSymbol: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.darkBlue,
-    marginBottom: 2,
-  },
-  category: {
-    fontSize: 12,
-    color: COLORS.mediumGray,
-  },
-  right: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  quantity: {
-    fontSize: 12,
-    color: COLORS.mediumGray,
-    marginBottom: 2,
+    flex: 1,
+    marginRight: 8,
   },
   price: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 2,
+    fontSize: 14,
+    fontWeight: '700',
   },
   pricePositive: {
     color: COLORS.success || '#10B981',
@@ -170,10 +175,39 @@ const styles = StyleSheet.create({
   priceNegative: {
     color: COLORS.danger || '#EF4444',
   },
-  note: {
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  transactionType: {
     fontSize: 11,
     color: COLORS.mediumGray,
-    fontStyle: 'italic',
-    maxWidth: 100,
+    fontWeight: '500',
+  },
+  separator: {
+    fontSize: 11,
+    color: COLORS.lightGray || '#D1D5DB',
+  },
+  quantity: {
+    fontSize: 11,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  time: {
+    fontSize: 11,
+    color: COLORS.mediumGray,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
