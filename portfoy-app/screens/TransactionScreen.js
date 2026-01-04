@@ -543,6 +543,14 @@ export default function TransactionScreen({ route, navigation }) {
                         setShowDropdown(true);
                       }
                     }}
+                    onBlur={() => {
+                      // Dropdown'daki item'a tıklamak için delay
+                      setTimeout(() => {
+                        if (!selectedAssetInfo) {
+                          setShowDropdown(false);
+                        }
+                      }, 300);
+                    }}
                     autoCorrect={false}
                     returnKeyType="search"
                     enablesReturnKeyAutomatically={false}
@@ -578,12 +586,15 @@ export default function TransactionScreen({ route, navigation }) {
                         <ScrollView 
                           style={styles.dropdownScroll}
                           nestedScrollEnabled={true}
+                          keyboardShouldPersistTaps="handled"
                         >
                           {popularAssets.map((asset, index) => (
                             <TouchableOpacity
                               key={`popular-${asset.symbol}-${index}`}
                               style={styles.dropdownItem}
                               onPress={() => handleSelectAsset(asset)}
+                              activeOpacity={0.7}
+                              delayPressIn={0}
                             >
                               <View style={styles.dropdownItemContent}>
                                 <Text style={styles.dropdownItemName}>
@@ -602,12 +613,15 @@ export default function TransactionScreen({ route, navigation }) {
                       <ScrollView 
                         style={styles.dropdownScroll}
                         nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
                       >
                         {searchResults.map((asset, index) => (
                           <TouchableOpacity
                             key={`${asset.symbol}-${index}`}
                             style={styles.dropdownItem}
                             onPress={() => handleSelectAsset(asset)}
+                            activeOpacity={0.7}
+                            delayPressIn={0}
                           >
                             <View style={styles.dropdownItemContent}>
                               <Text style={styles.dropdownItemName}>
