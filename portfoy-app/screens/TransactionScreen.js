@@ -195,7 +195,9 @@ export default function TransactionScreen({ route, navigation }) {
     setIsSearching(true);
     setShowDropdown(true);
 
-    // 500ms sonra arama yap (debounce)
+    // İlk karakter veya kısa metinlerde hızlı arama (200ms), uzun metinlerde normal (300ms)
+    const debounceTime = text.length <= 2 ? 200 : 300;
+    
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const results = await searchAllAssets(text, mainCategory);
@@ -206,7 +208,7 @@ export default function TransactionScreen({ route, navigation }) {
         setIsSearching(false);
         setSearchResults([]);
       }
-    }, 500);
+    }, debounceTime);
   };
 
   // Dropdown'dan varlık seçildiğinde
@@ -545,7 +547,7 @@ export default function TransactionScreen({ route, navigation }) {
                     returnKeyType="search"
                     enablesReturnKeyAutomatically={false}
                   />
-                  {/* Temizle Butonu */}
+                  {/* Temizle Butonu - X ikonu */}
                   {assetName.trim() && (
                     <TouchableOpacity 
                       style={styles.clearButton}
@@ -556,7 +558,7 @@ export default function TransactionScreen({ route, navigation }) {
                         setShowDropdown(false);
                       }}
                     >
-                      <Text style={styles.clearButtonText}>× Temizle</Text>
+                      <Text style={styles.clearButtonText}>×</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -882,7 +884,8 @@ const styles = StyleSheet.create({
   categoryButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: 4,
   },
   subCategoryScroll: {
     marginHorizontal: -20,
@@ -1082,22 +1085,25 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputWithClear: {
-    paddingRight: 90, // Temizle butonu için sağda boşluk
+    paddingRight: 45, // X butonu için sağda boşluk
   },
   clearButton: {
     position: 'absolute',
-    right: 12,
+    right: 8,
     top: '50%',
-    transform: [{ translateY: -10 }],
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    transform: [{ translateY: -15 }],
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: COLORS.lightGray,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   clearButtonText: {
-    fontSize: 13,
+    fontSize: 20,
     color: COLORS.mediumGray,
-    fontWeight: '500',
+    fontWeight: '400',
+    lineHeight: 20,
   },
   // Toast notification
   toastContainer: {

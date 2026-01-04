@@ -35,11 +35,14 @@ export default function CategoryButton({
 
 const styles = StyleSheet.create({
   button: {
+    minWidth: 80,
+    maxWidth: 120,
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     marginHorizontal: 4,
-    borderRadius: 8,
+    marginVertical: 4,
+    borderRadius: 10,
     backgroundColor: COLORS.lightGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -48,9 +51,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.darkGray,
+    textAlign: 'center',
   },
   buttonTextActive: {
     color: COLORS.white,
