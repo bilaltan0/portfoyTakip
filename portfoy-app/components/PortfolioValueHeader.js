@@ -1,39 +1,23 @@
 /**
  * PortfolioValueHeader.js - Portföy Değer Başlığı
  * 
- * Toplam portföy değeri + period bazlı kar/zarar göstergesi
+ * Toplam portföy değeri + toplam kar/zarar göstergesi
  * Binance/Coinbase tarzı profesyonel tasarım
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants/theme';
 import { EyeIcon, EyeOffIcon } from './icons';
-
-const PERIODS = [
-  { id: '1D', label: '1G', days: 1 },
-  { id: '1W', label: '1H', days: 7 },
-  { id: '1M', label: '1A', days: 30 },
-  { id: '1Y', label: '1Y', days: 365 },
-  { id: 'ALL', label: 'Tümü', days: null }
-];
 
 const PortfolioValueHeader = ({ 
   totalValue, 
   currencySymbol = '₺',
   profitLoss = 0,
   profitLossPercentage = 0,
-  selectedPeriod = '1D',
-  onPeriodChange,
   isBalanceHidden = false,
   onToggleBalance
 }) => {
-  const handlePeriodSelect = (periodId) => {
-    if (onPeriodChange) {
-      onPeriodChange(periodId);
-    }
-  };
-  
   const isProfit = profitLoss >= 0;
   const profitColor = isProfit ? COLORS.success : COLORS.danger;
   const profitIcon = isProfit ? '▲' : '▼';
@@ -68,9 +52,7 @@ const PortfolioValueHeader = ({
         <View style={styles.profitSection}>
           <View style={[styles.profitBadge, { backgroundColor: `${profitColor}15` }]}>
             <View style={styles.periodIndicator}>
-              <Text style={styles.periodLabel}>
-                {PERIODS.find(p => p.id === selectedPeriod)?.label || '1G'}
-              </Text>
+              <Text style={styles.periodLabel}>TOPLAM</Text>
             </View>
             <Text style={[styles.profitPercentage, { color: profitColor }]}>
               {profitIcon} {Math.abs(profitLossPercentage).toFixed(2)}%
@@ -83,28 +65,6 @@ const PortfolioValueHeader = ({
             </Text>
           </View>
         </View>
-      </View>
-
-      {/* Period Selector */}
-      <View style={styles.periodSelector}>
-        {PERIODS.map((period) => (
-          <TouchableOpacity
-            key={period.id}
-            style={[
-              styles.periodButton,
-              selectedPeriod === period.id && styles.periodButtonActive
-            ]}
-            onPress={() => handlePeriodSelect(period.id)}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.periodText,
-              selectedPeriod === period.id && styles.periodTextActive
-            ]}>
-              {period.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
       {/* Mini Trend Indicator */}
@@ -179,37 +139,6 @@ const styles = StyleSheet.create({
   profitAmount: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: 12,
-  },
-  periodButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  periodButtonActive: {
-    backgroundColor: COLORS.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  periodText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.mediumGray,
-  },
-  periodTextActive: {
-    color: COLORS.primary,
-    fontWeight: '700',
   },
   trendContainer: {
     height: 4,
