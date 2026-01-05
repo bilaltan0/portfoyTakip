@@ -33,7 +33,7 @@ export default function TransactionItem({ transaction, onEdit, onDelete }) {
   }
 
   const shortAssetName = getShortAssetName(transaction.assetName);
-  const unitPrice = transaction.unitPrice.toFixed(2);
+  const unitPrice = transaction.unitPrice ? transaction.unitPrice.toFixed(2) : '0.00';
 
   // Currency symbol
   const currencySymbols = {
@@ -47,7 +47,7 @@ export default function TransactionItem({ transaction, onEdit, onDelete }) {
   const displayName = transaction.symbol || shortAssetName;
 
   // Miktar formatı - daha okunur
-  const formattedQuantity = transaction.quantity.toLocaleString('tr-TR', { 
+  const formattedQuantity = (transaction.quantity || 0).toLocaleString('tr-TR', { 
     minimumFractionDigits: 0,
     maximumFractionDigits: 2 
   });

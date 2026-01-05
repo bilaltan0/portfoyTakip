@@ -170,16 +170,20 @@ export default function TransactionScreen({ route, navigation }) {
     setPopularAssets(popular);
   };
 
-  // Screen'den ayrılınca formu resetle (sadece edit mode'daysa)
+  // Screen'den ayrılınca formu resetle
   useFocusEffect(
     React.useCallback(() => {
       return () => {
-        // Screen'den ayrılınca (blur) çalışır
+        // Screen'den ayrılınca (blur) çalışır - Her durumda formu temizle
+        console.log('🔄 Screenden ayrılıyor, form resetleniyor');
+        
+        // Edit mode parametresini temizle
         if (editingTransaction) {
-          console.log('🔄 Screenden ayriliyor, edit mode resetleniyor');
-          // Edit mode parametresini temizle
           navigation.setParams({ editingTransaction: undefined });
         }
+        
+        // Formu tamamen temizle
+        resetForm();
       };
     }, [editingTransaction, navigation])
   );
@@ -310,7 +314,7 @@ export default function TransactionScreen({ route, navigation }) {
         return; // Fiyat alanını boş bırak, kullanıcı manuel girecek
       }
       
-      if (priceData && priceData.price > 0) {
+      if (priceData && priceData.price && priceData.price > 0) {
         // Fiyatı forma doldur (sessizce) - max 3 decimal places
         setUnitPrice(priceData.price.toFixed(3));
         setCurrency(priceData.currency);
@@ -442,14 +446,18 @@ export default function TransactionScreen({ route, navigation }) {
     }
   };
 
-  // Form reset - Ana kategoriyi KORU
+  // Form reset - Tamamen temizle
   const resetForm = () => {
-    // setMainCategory(''); // ❌ KALDIRILDI - Kategori korunsun
+    setMainCategory('');
     setAssetName('');
     setQuantity('');
     setUnitPrice('');
+    setCurrency('TRY');
     setNote('');
-    setSelectedAssetInfo(null); // API mapping'i temizle
+    setSearchResults([]);
+    setShowDropdown(false);
+    setSelectedAssetInfo(null);
+    setPopularAssets([]);
   };
 
   // Handle buy button

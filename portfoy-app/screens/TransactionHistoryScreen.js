@@ -18,9 +18,12 @@ export default function TransactionHistoryScreen({ navigation }) {
 
   // İşlem silme
   const handleDelete = (transaction) => {
+    const unitPriceDisplay = transaction.unitPrice ? transaction.unitPrice.toFixed(2) : '0.00';
+    const quantityDisplay = transaction.quantity || 0;
+    
     Alert.alert(
       '⚠️ İşlem Sil',
-      `Bu işlemi silmek istediğinizden emin misiniz?\n\n${transaction.type === 'buy' ? 'Alış' : 'Satış'} - ${transaction.assetName}\n${transaction.quantity} adet × ${transaction.currency} ${transaction.unitPrice.toFixed(2)}`,
+      `Bu işlemi silmek istediğinizden emin misiniz?\n\n${transaction.type === 'buy' ? 'Alış' : 'Satış'} - ${transaction.assetName}\n${quantityDisplay} adet × ${transaction.currency} ${unitPriceDisplay}`,
       [
         {
           text: 'İptal',

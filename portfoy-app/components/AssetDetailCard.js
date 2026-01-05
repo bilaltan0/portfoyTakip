@@ -74,7 +74,7 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>{asset.quantityLabel}</Text>
         <Text style={styles.value}>
-          {isBalanceHidden ? '***' : asset.quantity.toLocaleString('tr-TR', { 
+          {isBalanceHidden ? '***' : (asset.quantity || 0).toLocaleString('tr-TR', { 
             minimumFractionDigits: 2, 
             maximumFractionDigits: 4 
           })}
@@ -84,7 +84,7 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Ort. Alış</Text>
         <Text style={styles.value}>
-          {currencySymbol}{asset.avgPrice.toLocaleString('tr-TR', { 
+          {currencySymbol}{(asset.avgPrice || 0).toLocaleString('tr-TR', { 
             maximumFractionDigits: 2,
             minimumFractionDigits: 2 
           })}
@@ -96,7 +96,7 @@ export default function AssetDetailCard({
         <View style={styles.row}>
           <Text style={styles.label}>Anlık Fiyat</Text>
           <Text style={[styles.value, { color: COLORS.primary }]}>
-            {currencySymbol}{currentPrice.toLocaleString('tr-TR', { 
+            {currencySymbol}{(currentPrice || 0).toLocaleString('tr-TR', { 
               maximumFractionDigits: 2,
               minimumFractionDigits: 2 
             })}
@@ -107,7 +107,7 @@ export default function AssetDetailCard({
       <View style={styles.row}>
         <Text style={styles.label}>Toplam</Text>
         <Text style={[styles.value, styles.totalValue]}>
-          {isBalanceHidden ? '₺ *****' : `${currencySymbol}${asset.value.toLocaleString('tr-TR', {
+          {isBalanceHidden ? '₺ *****' : `${currencySymbol}${(asset.value || 0).toLocaleString('tr-TR', {
             maximumFractionDigits: 0,
             minimumFractionDigits: 0
           })}`}
