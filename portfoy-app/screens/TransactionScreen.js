@@ -170,6 +170,20 @@ export default function TransactionScreen({ route, navigation }) {
     setPopularAssets(popular);
   };
 
+  // Screen'den ayrılınca formu resetle (sadece edit mode'daysa)
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // Screen'den ayrılınca (blur) çalışır
+        if (editingTransaction) {
+          console.log('🔄 Screenden ayriliyor, edit mode resetleniyor');
+          // Edit mode parametresini temizle
+          navigation.setParams({ editingTransaction: undefined });
+        }
+      };
+    }, [editingTransaction, navigation])
+  );
+
   // Varlık arama fonksiyonu (debounced)
   const handleAssetSearch = (text) => {
     setAssetName(text);
@@ -563,6 +577,7 @@ export default function TransactionScreen({ route, navigation }) {
                         setAssetName('');
                         setSelectedAssetInfo(null);
                         setUnitPrice('');
+                        setQuantity('');
                         setShowDropdown(false);
                       }}
                     >
