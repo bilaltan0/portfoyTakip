@@ -77,7 +77,6 @@ import { STORAGE_KEYS } from '../constants/storage.constants';
 import { getQuantityLabel } from '../utils/assetUtils';
 import { getCategoryColor, generateColorForAsset } from '../utils/colorUtils';
 import { convertCurrency as convertCurrencyUtil, formatCurrency, getCurrencySymbol } from '../utils/currencyUtils';
-import { calculatePeriodProfitLoss } from '../utils/periodCalculations';
 
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
@@ -94,13 +93,6 @@ export default function DashboardScreen({ navigation }) {
   
   // Kategori drill-down state
   const [selectedCategory, setSelectedCategory] = useState(null);
-  
-  // Period state (1D, 1W, 1M, 1Y, ALL)
-  const [selectedPeriod, setSelectedPeriod] = useState('ALL');
-  const [periodProfitLoss, setPeriodProfitLoss] = useState({
-    profitLoss: 0,
-    profitLossPercentage: 0
-  });
 
   // Debug: Verileri temizle
   const handleClearData = () => {
@@ -293,10 +285,6 @@ export default function DashboardScreen({ navigation }) {
         profitLoss: 0,
         profitLossPercentage: 0
       });
-      setPeriodProfitLoss({
-        profitLoss: 0,
-        profitLossPercentage: 0
-      });
       return;
     }
 
@@ -340,14 +328,8 @@ export default function DashboardScreen({ navigation }) {
       profitLossPercentage: profitLossPerc
     });
 
-    // Period bazlı kar/zarar için de aynı mantığı kullan
-    setPeriodProfitLoss({
-      profitLoss: convertCurrency(profitLossInTRY),
-      profitLossPercentage: profitLossPerc
-    });
-
     console.log(`📈 KAR/ZARAR: ${profitLossInTRY > 0 ? '+' : ''}${profitLossInTRY.toFixed(2)} TRY (${profitLossPerc > 0 ? '+' : ''}${profitLossPerc.toFixed(2)}%)`);
-  }, [prices, assetsForPricing, displayCurrency, selectedPeriod, transactions, exchangeRates]);
+  }, [prices, assetsForPricing, displayCurrency, transactions, exchangeRates]);
 
   // Varlık dağılımı verilerini ANLIK FİYATLARA GÖRE hesapla
   const getCategoryValues = () => {
@@ -741,10 +723,8 @@ export default function DashboardScreen({ navigation }) {
         <PortfolioValueHeader
           totalValue={totalPortfolioValue}
           currencySymbol={currencySymbol}
-          profitLoss={periodProfitLoss.profitLoss}
-          profitLossPercentage={periodProfitLoss.profitLossPercentage}
-          selectedPeriod={selectedPeriod}
-          onPeriodChange={setSelectedPeriod}
+          profitLoss={profitLossData.profitLoss}
+          profitLossPercentage={profitLossData.profitLossPercentage}
           isBalanceHidden={isBalanceHidden}
           onToggleBalance={() => setIsBalanceHidden(!isBalanceHidden)}
         />
