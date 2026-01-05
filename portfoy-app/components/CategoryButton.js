@@ -5,12 +5,8 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants/theme';
-
-const { width } = Dimensions.get('window');
-// 4 buton için: ekran genişliği - padding'ler (20*2) - gap'ler (4*3) / 4
-const buttonWidth = (width - 40 - 12) / 4;
 
 export default function CategoryButton({ 
   label, 
@@ -39,11 +35,9 @@ export default function CategoryButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: buttonWidth,
-    paddingVertical: 14,
+    flex: 1,
+    paddingVertical: 12,
     paddingHorizontal: 8,
-    marginHorizontal: 2,
-    marginVertical: 4,
     borderRadius: 10,
     backgroundColor: COLORS.lightGray,
     alignItems: 'center',

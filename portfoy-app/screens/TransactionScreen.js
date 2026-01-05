@@ -943,9 +943,7 @@ const styles = StyleSheet.create({
   },
   categoryButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 4,
+    gap: 8,
   },
   subCategoryScroll: {
     marginHorizontal: -20,
