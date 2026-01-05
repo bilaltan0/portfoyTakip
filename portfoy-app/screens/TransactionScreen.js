@@ -347,14 +347,21 @@ export default function TransactionScreen({ route, navigation }) {
       Alert.alert('Hata', 'Lütfen varlık adı girin');
       return false;
     }
-    if (!quantity || parseFloat(quantity) <= 0) {
-      Alert.alert('Hata', 'Lütfen geçerli bir miktar girin');
+    
+    // Miktar validasyonu
+    const quantityNum = parseFloat(quantity);
+    if (!quantity || isNaN(quantityNum) || quantityNum <= 0) {
+      Alert.alert('Hata', 'Lütfen geçerli bir miktar girin (sadece rakam)');
       return false;
     }
-    if (!unitPrice || parseFloat(unitPrice) <= 0) {
-      Alert.alert('Hata', 'Lütfen geçerli bir fiyat girin');
+    
+    // Birim fiyat validasyonu
+    const priceNum = parseFloat(unitPrice);
+    if (!unitPrice || isNaN(priceNum) || priceNum <= 0) {
+      Alert.alert('Hata', 'Lütfen geçerli bir birim fiyat girin (sadece rakam)');
       return false;
     }
+    
     return true;
   };
 
@@ -674,13 +681,21 @@ export default function TransactionScreen({ route, navigation }) {
                   placeholderTextColor={COLORS.mediumGray}
                   value={quantity}
                   onChangeText={(text) => {
+                    // Sadece rakam ve nokta kabul et
+                    const sanitized = text.replace(/[^0-9.]/g, '');
+                    
+                    // Birden fazla nokta varsa sadece ilkini al
+                    const parts = sanitized.split('.');
+                    if (parts.length > 2) {
+                      return;
+                    }
+                    
                     // Virgülden sonra max 3 basamak kontrolü
-                    const parts = text.split('.');
                     if (parts.length > 1 && parts[1].length > 3) {
                       // 3 basamaktan fazlaysa kes
                       setQuantity(`${parts[0]}.${parts[1].substring(0, 3)}`);
                     } else {
-                      setQuantity(text);
+                      setQuantity(sanitized);
                     }
                   }}
                   keyboardType="decimal-pad"
@@ -695,13 +710,21 @@ export default function TransactionScreen({ route, navigation }) {
                   placeholderTextColor={COLORS.mediumGray}
                   value={unitPrice}
                   onChangeText={(text) => {
+                    // Sadece rakam ve nokta kabul et
+                    const sanitized = text.replace(/[^0-9.]/g, '');
+                    
+                    // Birden fazla nokta varsa sadece ilkini al
+                    const parts = sanitized.split('.');
+                    if (parts.length > 2) {
+                      return;
+                    }
+                    
                     // Virgülden sonra max 3 basamak kontrolü
-                    const parts = text.split('.');
                     if (parts.length > 1 && parts[1].length > 3) {
                       // 3 basamaktan fazlaysa kes
                       setUnitPrice(`${parts[0]}.${parts[1].substring(0, 3)}`);
                     } else {
-                      setUnitPrice(text);
+                      setUnitPrice(sanitized);
                     }
                   }}
                   keyboardType="decimal-pad"
