@@ -27,8 +27,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Context Provider
+// Context Providers
 import { PortfolioProvider } from './context/PortfolioContext';
+import { SubCategoryProvider } from './context/SubCategoryContext';
 
 // Screens
 import DashboardScreen from './screens/DashboardScreen';
@@ -104,13 +105,15 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <PortfolioProvider>
-        <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Main" component={TabNavigator} />
-            <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
-            <Stack.Screen name="Help" component={HelpScreen} />
-          </Stack.Navigator>
-        </NavigationContainer>
+        <SubCategoryProvider>
+          <NavigationContainer>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Main" component={TabNavigator} />
+              <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+              <Stack.Screen name="Help" component={HelpScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </SubCategoryProvider>
       </PortfolioProvider>
     </SafeAreaProvider>
   );

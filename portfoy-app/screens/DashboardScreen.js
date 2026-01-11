@@ -50,6 +50,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { COLORS, MOCK_ASSETS, CURRENCY_SYMBOLS, EXCHANGE_RATES } from '../constants/theme';
 import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
+import { useSubCategories } from '../context/SubCategoryContext';
 import PortfolioSelector from '../components/PortfolioSelector';
 
 // Modüler component'ler
@@ -81,6 +82,12 @@ import { convertCurrency as convertCurrencyUtil, formatCurrency, getCurrencySymb
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
   const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
+  const { 
+    subCategories, 
+    loading: subCategoriesLoading, 
+    createSubCategory,
+    refreshData: refreshSubCategories 
+  } = useSubCategories();
   
   // Gizlilik state (tutar gizleme/gösterme)
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
@@ -719,6 +726,76 @@ export default function DashboardScreen({ navigation }) {
           />
         }
       >
+        {/* 🧪 TEST: SubCategory System - SADECE GELİŞTİRME İÇİN */}
+        {__DEV__ && (
+          <View style={styles.testSection}>
+            <Text style={styles.testTitle}>🧪 Phase 1 Test - Data Layer</Text>
+            <Text style={styles.testText}>
+              Yüklü Kategoriler: {subCategories.length}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity 
+                style={[styles.testButton, { flex: 1, backgroundColor: COLORS.primary }]}
+                onPress={async () => {
+                  try {
+                    // Her seferinde farklı isim ile test
+                    const timestamp = Date.now().toString().slice(-4);
+                    const newCategory = await createSubCategory({
+                      name: `Test-${timestamp}`,
+                      parentCategory: 'Borsa',
+                      icon: '🎯',
+                      color: '#FF6B6B',
+                      targetPercentage: 15
+                    });
+                    
+                    const shortId = newCategory.id.substring(0, 8);
+                    Alert.alert('✅ Başarılı', `${newCategory.name} oluşturuldu!\nID: ${shortId}...`);
+                  } catch (error) {
+                    Alert.alert('❌ Hata', error.message);
+                  }
+                }}
+              >
+                <Text style={styles.testButtonText}>+ Ekle</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.testButton, { flex: 1, backgroundColor: '#EF4444' }]}
+                onPress={async () => {
+                  Alert.alert(
+                    '⚠️ Uyarı',
+                    `Sadece SubCategory verileri silinecek.\nPortföy datalarına (₺${Math.round(totalPortfolioValue).toLocaleString('tr-TR')}) dokunulmayacak.`,
+                    [
+                      { text: 'İptal', style: 'cancel' },
+                      {
+                        text: 'Temizle',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            const { clearAllSubCategoryData } = await import('../utils/subCategoryStorage');
+                            const success = await clearAllSubCategoryData();
+                            
+                            if (success) {
+                              // Context'i yeniden yükle
+                              await refreshSubCategories();
+                              Alert.alert('✅ Başarılı', `SubCategory storage temizlendi.\nYüklü kategoriler: ${subCategories.length} → 0`);
+                            } else {
+                              Alert.alert('❌ Hata', 'Temizleme başarısız');
+                            }
+                          } catch (error) {
+                            Alert.alert('❌ Hata', error.message);
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.testButtonText}>🗑️ Temizle</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Portfolio Value Header - Modern Tasarım */}
         <PortfolioValueHeader
           totalValue={totalPortfolioValue}
@@ -1018,6 +1095,42 @@ const styles = StyleSheet.create({
   scroll: {
     paddingBottom: 90,
   },
+  // 🧪 Test Section Styles
+  testSection: {
+    backgroundColor: '#FFF9E6',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    borderStyle: 'dashed',
+  },
+  testTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+    marginBottom: 8,
+  },
+  testText: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    marginBottom: 12,
+  },
+  testButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
+  // End Test Styles
   loadingBadgeCenter: {
     flexDirection: 'row',
     alignItems: 'center',
