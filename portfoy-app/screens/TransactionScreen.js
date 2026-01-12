@@ -17,7 +17,8 @@ import {
   ActivityIndicator,
   TouchableWithoutFeedback,
   Keyboard,
-  Animated
+  Animated,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -34,8 +35,20 @@ import { fetchAssetPrice } from '../services/priceService';
 // Ekran boyutunu al - Responsive tasarım için
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Modal için sabitler
+const COMMON_EMOJIS = ['📁', '🔷', '🏦', '💵', '💻', '✈️', '🏆', '🎯', '📊', '🔥', '⭐', '💎', '🏠', '🚗', '💰', '📈'];
+const PRESET_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#EC4899', '#6366F1'];
+
 export default function TransactionScreen({ route, navigation }) {
-  const { addTransaction, updateTransaction, categories, activePortfolio } = usePortfolio();
+  const { 
+    addTransaction, 
+    updateTransaction, 
+    categories, 
+    activePortfolio,
+    subCategories,
+    createSubCategory,
+    refreshSubCategories 
+  } = usePortfolio();
 
   // Edit mode kontrolü
   const editingTransaction = route?.params?.editingTransaction;
@@ -43,6 +56,7 @@ export default function TransactionScreen({ route, navigation }) {
 
   // Form state
   const [mainCategory, setMainCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null); // Alt kategori seçimi
   const [assetName, setAssetName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
@@ -54,6 +68,13 @@ export default function TransactionScreen({ route, navigation }) {
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [popularAssets, setPopularAssets] = useState([]);
+  
+  // SubCategory Modal state
+  const [showSubCategoryModal, setShowSubCategoryModal] = useState(false);
+  const [newSubCategoryName, setNewSubCategoryName] = useState('');
+  const [newSubCategoryIcon, setNewSubCategoryIcon] = useState('📁');
+  const [newSubCategoryColor, setNewSubCategoryColor] = useState('#3B82F6');
+  const [isCreatingSubCategory, setIsCreatingSubCategory] = useState(false);
   
   // Price fetching state
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
@@ -156,6 +177,7 @@ export default function TransactionScreen({ route, navigation }) {
       setShowDropdown(false);
       setUnitPrice(''); // Fiyatı da temizle
       setSelectedAssetInfo(null); // API mapping'i de temizle
+      setSelectedSubCategory(null); // Alt kategori seçimini de temizle
     }
     
     // Kategori seçildiğinde popüler varlıkları yükle
@@ -449,6 +471,7 @@ export default function TransactionScreen({ route, navigation }) {
   // Form reset - Tamamen temizle
   const resetForm = () => {
     setMainCategory('');
+    setSelectedSubCategory(null);
     setAssetName('');
     setQuantity('');
     setUnitPrice('');
@@ -458,6 +481,51 @@ export default function TransactionScreen({ route, navigation }) {
     setShowDropdown(false);
     setSelectedAssetInfo(null);
     setPopularAssets([]);
+  };
+
+  // Alt Kategori Oluştur
+  const handleCreateSubCategory = async () => {
+    const trimmedName = newSubCategoryName.trim();
+    
+    if (!trimmedName) {
+      Alert.alert('Hata', 'Lütfen kategori adı girin');
+      return;
+    }
+
+    // Aynı isimde kategori var mı kontrol et
+    const exists = subCategories.some(
+      sc => sc.parentCategory === mainCategory && 
+            sc.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (exists) {
+      Alert.alert('Hata', 'Bu isimde bir alt kategori zaten var');
+      return;
+    }
+
+    setIsCreatingSubCategory(true);
+    
+    try {
+      const newSubCat = await createSubCategory({
+        name: trimmedName,
+        parentCategory: mainCategory,
+        icon: newSubCategoryIcon,
+        color: newSubCategoryColor,
+        targetPercentage: 0,
+      });
+
+      setSelectedSubCategory(newSubCat);
+      setShowSubCategoryModal(false);
+      setNewSubCategoryName('');
+      setNewSubCategoryIcon('📁');
+      setNewSubCategoryColor('#3B82F6');
+      
+      showToast(`✅ ${trimmedName} oluşturuldu!`, 'success');
+    } catch (error) {
+      Alert.alert('Hata', 'Alt kategori oluşturulamadı: ' + error.message);
+    } finally {
+      setIsCreatingSubCategory(false);
+    }
   };
 
   // Handle buy button
@@ -545,6 +613,65 @@ export default function TransactionScreen({ route, navigation }) {
               ))}
             </View>
           </View>
+
+          {/* Alt Kategori Seçimi - Kategori seçildiyse göster */}
+          {mainCategory && (
+            <View style={styles.section}>
+              <Text style={styles.label}>🏷️ Alt Kategori (Opsiyonel)</Text>
+              <View style={styles.subCategoryContainer}>
+                {/* "Atanmayacak" seçeneği */}
+                <TouchableOpacity
+                  style={[
+                    styles.subCategoryChip,
+                    selectedSubCategory === null && styles.subCategoryChipActive
+                  ]}
+                  onPress={() => setSelectedSubCategory(null)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.subCategoryChipText,
+                    selectedSubCategory === null && styles.subCategoryChipTextActive
+                  ]}>
+                    ❌ Atanmayacak
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Mevcut alt kategoriler */}
+                {subCategories
+                  .filter(sc => sc.parentCategory === mainCategory)
+                  .map((subCat) => (
+                    <TouchableOpacity
+                      key={subCat.id}
+                      style={[
+                        styles.subCategoryChip,
+                        selectedSubCategory?.id === subCat.id && styles.subCategoryChipActive,
+                        { borderColor: subCat.color }
+                      ]}
+                      onPress={() => setSelectedSubCategory(subCat)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.subCategoryChipText,
+                        selectedSubCategory?.id === subCat.id && styles.subCategoryChipTextActive
+                      ]}>
+                        {subCat.icon} {subCat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+
+                {/* "Yeni Oluştur" butonu */}
+                <TouchableOpacity
+                  style={[styles.subCategoryChip, styles.subCategoryChipNew]}
+                  onPress={() => setShowSubCategoryModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.subCategoryChipTextNew}>
+                    + Yeni Oluştur
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Varlık Adı */}
           <View style={styles.section}>
@@ -867,6 +994,127 @@ export default function TransactionScreen({ route, navigation }) {
           </View>
         </Animated.View>
       )}
+
+      {/* Alt Kategori Oluşturma Modal */}
+      <Modal
+        visible={showSubCategoryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSubCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✨ Yeni Alt Kategori</Text>
+              <TouchableOpacity 
+                onPress={() => setShowSubCategoryModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Ana Kategori Göster */}
+            {mainCategory && (
+              <View style={styles.modalInfoBox}>
+                <Text style={styles.modalInfoLabel}>Ana Kategori</Text>
+                <Text style={styles.modalInfoValue}>
+                  {mainCategory === 'Altın' && '🥇 Altın'}
+                  {mainCategory === 'Döviz' && '💵 Döviz'}
+                  {mainCategory === 'Kripto' && '₿ Kripto'}
+                  {mainCategory === 'Borsa' && '📈 Borsa'}
+                </Text>
+              </View>
+            )}
+
+            {/* Kategori Adı */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalLabel}>Kategori Adı</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Örn: Emlak, Teknoloji, Bireysel..."
+                placeholderTextColor={COLORS.mediumGray}
+                value={newSubCategoryName}
+                onChangeText={setNewSubCategoryName}
+                maxLength={30}
+              />
+            </View>
+
+            {/* Emoji Seçimi */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalLabel}>İkon</Text>
+              <View style={styles.emojiGrid}>
+                {COMMON_EMOJIS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[
+                      styles.emojiButton,
+                      newSubCategoryIcon === emoji && styles.emojiButtonActive
+                    ]}
+                    onPress={() => setNewSubCategoryIcon(emoji)}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Renk Seçimi */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalLabel}>Renk</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.colorScroll}
+              >
+                {PRESET_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorButton,
+                      { backgroundColor: color },
+                      newSubCategoryColor === color && styles.colorButtonActive
+                    ]}
+                    onPress={() => setNewSubCategoryColor(color)}
+                  >
+                    {newSubCategoryColor === color && (
+                      <Text style={styles.colorCheckmark}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowSubCategoryModal(false);
+                  setNewSubCategoryName('');
+                  setNewSubCategoryIcon('📁');
+                  setNewSubCategoryColor('#3B82F6');
+                }}
+              >
+                <Text style={styles.modalButtonTextCancel}>İptal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCreate]}
+                onPress={handleCreateSubCategory}
+                disabled={isCreatingSubCategory}
+              >
+                {isCreatingSubCategory ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalButtonTextCreate}>Oluştur</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1195,5 +1443,191 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
     textAlign: 'center',
+  },
+  // Alt Kategori Seçim Stilleri
+  subCategoryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  subCategoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.lightGray,
+  },
+  subCategoryChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  subCategoryChipNew: {
+    backgroundColor: '#F0F4FF',
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+  },
+  subCategoryChipText: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    fontWeight: '500',
+  },
+  subCategoryChipTextActive: {
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+  subCategoryChipTextNew: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: SCREEN_WIDTH * 0.9,
+    maxHeight: SCREEN_HEIGHT * 0.8,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.darkGray,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: COLORS.mediumGray,
+    fontWeight: '600',
+  },
+  modalInfoBox: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+  },
+  modalInfoLabel: {
+    fontSize: 12,
+    color: COLORS.mediumGray,
+    marginBottom: 4,
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.darkGray,
+  },
+  modalSection: {
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.darkGray,
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: COLORS.darkGray,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  emojiButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  emojiButtonActive: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  emojiText: {
+    fontSize: 24,
+  },
+  colorScroll: {
+    flexGrow: 0,
+  },
+  colorButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  colorButtonActive: {
+    borderColor: COLORS.darkGray,
+  },
+  colorCheckmark: {
+    fontSize: 20,
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#F3F4F6',
+  },
+  modalButtonCreate: {
+    backgroundColor: COLORS.primary,
+  },
+  modalButtonTextCancel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.mediumGray,
+  },
+  modalButtonTextCreate: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });

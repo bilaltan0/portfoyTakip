@@ -53,6 +53,7 @@ export function PortfolioProvider({ children }) {
   const [activePortfolioId, setActivePortfolioId] = useState('1'); // Aktif portföy
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [displayCurrency, setDisplayCurrency] = useState('TRY'); // Dashboard'da gösterilecek para birimi
+  const [subCategories, setSubCategories] = useState([]); // Alt kategoriler
   const [loading, setLoading] = useState(true);
 
   // Aktif portföyün transactions'ını al
@@ -116,6 +117,12 @@ export function PortfolioProvider({ children }) {
       if (savedCurrency) {
         setDisplayCurrency(savedCurrency);
       }
+
+      // SubCategories yükle
+      const { loadSubCategories } = await import('../utils/subCategoryStorage');
+      const loadedSubCategories = await loadSubCategories();
+      setSubCategories(loadedSubCategories);
+      console.log('✅', loadedSubCategories.length, 'alt kategori yüklendi');
 
       console.log('✅ Veriler AsyncStorage\'dan yüklendi');
     } catch (error) {
@@ -448,6 +455,20 @@ export function PortfolioProvider({ children }) {
     return grouped;
   };
 
+  // SubCategory fonksiyonları
+  const createSubCategory = async (subCategoryData) => {
+    const { addSubCategory } = await import('../utils/subCategoryStorage');
+    const newSubCategory = await addSubCategory(subCategoryData);
+    await refreshSubCategories();
+    return newSubCategory;
+  };
+
+  const refreshSubCategories = async () => {
+    const { loadSubCategories } = await import('../utils/subCategoryStorage');
+    const loaded = await loadSubCategories();
+    setSubCategories(loaded);
+  };
+
   // Context value
   const value = {
     // Portfolio State
@@ -460,6 +481,11 @@ export function PortfolioProvider({ children }) {
     categories,
     displayCurrency,
     loading,
+
+    // SubCategory State & Actions
+    subCategories,
+    createSubCategory,
+    refreshSubCategories,
 
     // Portfolio Actions
     createPortfolio,
