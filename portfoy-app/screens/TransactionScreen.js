@@ -2,7 +2,7 @@
  * TransactionScreen.js - İşlem Yap Ekranı
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -25,6 +25,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
+import { useSubCategories } from '../context/SubCategoryContext';
 import CategoryButton from '../components/CategoryButton';
 import AssetChip from '../components/AssetChip';
 import CurrencyButton from '../components/CurrencyButton';
@@ -45,11 +46,15 @@ export default function TransactionScreen({ route, navigation }) {
     updateTransaction, 
     categories, 
     activePortfolio,
-    subCategories,
-    createSubCategory,
     refreshSubCategories 
   } = usePortfolio();
 
+  const { 
+    subCategories,
+    createSubCategory,
+    assignAssetToSubCategory, 
+    removeAssetFromCategory 
+  } = useSubCategories();
   // Edit mode kontrolü
   const editingTransaction = route?.params?.editingTransaction;
   const isEditMode = !!editingTransaction;
@@ -136,8 +141,16 @@ export default function TransactionScreen({ route, navigation }) {
           fullName: editingTransaction.assetName
         });
       }
+
+      // Eğer transaction alt kategori bilgisi içeriyorsa yükle (varsa subCategories zaten context'ten gelmiş olur)
+      if (editingTransaction.subCategoryId) {
+        const existing = subCategories.find(sc => sc.id === editingTransaction.subCategoryId) || null;
+        setSelectedSubCategory(existing);
+      } else {
+        setSelectedSubCategory(null);
+      }
     }
-  }, [editingTransaction]);
+  }, [editingTransaction, subCategories]);
   
   // Preselected asset için ayrı useEffect
   useFocusEffect(
@@ -404,6 +417,7 @@ export default function TransactionScreen({ route, navigation }) {
         provider: selectedAssetInfo?.provider || editingTransaction.provider || null,
         apiId: selectedAssetInfo?.id || editingTransaction.apiId || null,
         apiCurrency: selectedAssetInfo?.currency || editingTransaction.apiCurrency || null,
+        subCategoryId: selectedSubCategory?.id || null,
         type: transactionType,
         quantity: parseFloat(quantity),
         unitPrice: parseFloat(unitPrice),
@@ -417,6 +431,17 @@ export default function TransactionScreen({ route, navigation }) {
       const success = await updateTransaction(editingTransaction.id, updatedTransaction);
 
       if (success) {
+        try {
+          // Update asset-to-subcategory mapping according to selection
+          if (selectedSubCategory && selectedSubCategory.id) {
+            await assignAssetToSubCategory(assetName.trim(), selectedSubCategory.id);
+          } else {
+            // If user selected 'Atanmayacak' (no subcategory), remove mapping
+            await removeAssetFromCategory(assetName.trim());
+          }
+        } catch (err) {
+          console.error('⚠️ Mapping update failed after transaction update:', err);
+        }
         showToast('İşlem güncellendi', 'success');
         // İşlem geçmişine geri dön
         setTimeout(() => {
@@ -437,6 +462,7 @@ export default function TransactionScreen({ route, navigation }) {
       provider: selectedAssetInfo?.provider || null,
       apiId: selectedAssetInfo?.id || null, // CoinGecko ID, Yahoo symbol, vb.
       apiCurrency: selectedAssetInfo?.currency || null,
+      subCategoryId: selectedSubCategory?.id || null,
       type: transactionType,
       quantity: parseFloat(quantity),
       unitPrice: parseFloat(unitPrice),
@@ -459,6 +485,15 @@ export default function TransactionScreen({ route, navigation }) {
     if (success) {
       // Form temizle (kategori korunur)
       resetForm();
+
+      // Eğer alt kategori seçildiyse mapping'i güncelle
+      if (selectedSubCategory && selectedSubCategory.id) {
+        try {
+          await assignAssetToSubCategory(transaction.assetName, selectedSubCategory.id);
+        } catch (err) {
+          console.error('⚠️ Mapping update failed after transaction create:', err);
+        }
+      }
 
       // Toast bildirim göster - Artık kesin kaydedildi!
       showToast('İşlem gerçekleştirildi', transactionType === 'buy' ? 'success' : 'error');
@@ -487,6 +522,8 @@ export default function TransactionScreen({ route, navigation }) {
   const handleCreateSubCategory = async () => {
     const trimmedName = newSubCategoryName.trim();
     
+    console.log('🔵 handleCreateSubCategory çağrıldı, name:', trimmedName, 'mainCategory:', mainCategory);
+    
     if (!trimmedName) {
       Alert.alert('Hata', 'Lütfen kategori adı girin');
       return;
@@ -506,6 +543,7 @@ export default function TransactionScreen({ route, navigation }) {
     setIsCreatingSubCategory(true);
     
     try {
+      console.log('🔵 createSubCategory çağrılıyor...');
       const newSubCat = await createSubCategory({
         name: trimmedName,
         parentCategory: mainCategory,
@@ -514,6 +552,8 @@ export default function TransactionScreen({ route, navigation }) {
         targetPercentage: 0,
       });
 
+      console.log('✅ Yeni kategori oluşturuldu:', newSubCat);
+      
       setSelectedSubCategory(newSubCat);
       setShowSubCategoryModal(false);
       setNewSubCategoryName('');
@@ -522,6 +562,7 @@ export default function TransactionScreen({ route, navigation }) {
       
       showToast(`✅ ${trimmedName} oluşturuldu!`, 'success');
     } catch (error) {
+      console.error('❌ Alt kategori oluşturma hatası:', error);
       Alert.alert('Hata', 'Alt kategori oluşturulamadı: ' + error.message);
     } finally {
       setIsCreatingSubCategory(false);
@@ -619,57 +660,49 @@ export default function TransactionScreen({ route, navigation }) {
             <View style={styles.section}>
               <Text style={styles.label}>🏷️ Alt Kategori (Opsiyonel)</Text>
               <View style={styles.subCategoryContainer}>
-                {/* "Atanmayacak" seçeneği */}
-                <TouchableOpacity
-                  style={[
-                    styles.subCategoryChip,
-                    selectedSubCategory === null && styles.subCategoryChipActive
-                  ]}
-                  onPress={() => setSelectedSubCategory(null)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.subCategoryChipText,
-                    selectedSubCategory === null && styles.subCategoryChipTextActive
-                  ]}>
-                    ❌ Atanmayacak
-                  </Text>
-                </TouchableOpacity>
+                {[
+                  ...subCategories
+                    .filter(sc => sc.parentCategory === mainCategory && sc.id)
+                    .map((subCat) => (
+                      <TouchableOpacity
+                        key={subCat.id}
+                        style={[
+                          styles.subCategoryChip,
+                          selectedSubCategory?.id === subCat.id && styles.subCategoryChipActive,
+                          { borderColor: subCat.color }
+                        ]}
+                        onPress={() => setSelectedSubCategory(subCat)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.subCategoryChipText,
+                          selectedSubCategory?.id === subCat.id && styles.subCategoryChipTextActive
+                        ]}>
+                          {subCat.icon} {subCat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    )),
 
-                {/* Mevcut alt kategoriler */}
-                {subCategories
-                  .filter(sc => sc.parentCategory === mainCategory)
-                  .map((subCat) => (
-                    <TouchableOpacity
-                      key={subCat.id}
-                      style={[
-                        styles.subCategoryChip,
-                        selectedSubCategory?.id === subCat.id && styles.subCategoryChipActive,
-                        { borderColor: subCat.color }
-                      ]}
-                      onPress={() => setSelectedSubCategory(subCat)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.subCategoryChipText,
-                        selectedSubCategory?.id === subCat.id && styles.subCategoryChipTextActive
-                      ]}>
-                        {subCat.icon} {subCat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-
-                {/* "Yeni Oluştur" butonu */}
-                <TouchableOpacity
-                  style={[styles.subCategoryChip, styles.subCategoryChipNew]}
-                  onPress={() => setShowSubCategoryModal(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.subCategoryChipTextNew}>
-                    + Yeni Oluştur
-                  </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    key="create-new-subcategory"
+                    style={[styles.subCategoryChip, styles.subCategoryChipNew]}
+                    onPress={() => setShowSubCategoryModal(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.subCategoryChipTextNew}>
+                      + Yeni Oluştur
+                    </Text>
+                  </TouchableOpacity>
+                ]}
               </View>
+              {selectedSubCategory && (
+                <TouchableOpacity 
+                  style={styles.clearSubCategoryButton}
+                  onPress={() => setSelectedSubCategory(null)}
+                >
+                  <Text style={styles.clearSubCategoryText}>✕ Seçimi Kaldır</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -1480,6 +1513,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  clearSubCategoryButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  clearSubCategoryText: {
+    fontSize: 13,
+    color: COLORS.error,
+    fontWeight: '500',
   },
   // Modal Styles
   modalOverlay: {

@@ -5,6 +5,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSubCategory as createSubCategoryModel } from '../models/SubCategory';
 import { 
   loadSubCategories,
@@ -16,7 +17,8 @@ import {
   assignAssetToSubCategory as assignAssetInStorage,
   removeAssetFromSubCategory as removeAssetInStorage,
   getSubCategoryForAsset,
-  loadAssetMapping
+  loadAssetMapping,
+  STORAGE_KEYS
 } from '../utils/subCategoryStorage';
 
 const SubCategoryContext = createContext();
@@ -49,10 +51,33 @@ export const SubCategoryProvider = ({ children }) => {
         loadAssetMapping()
       ]);
       
-      setSubCategories(categories);
+      // ⚠️ FIX: ID olmayan kategorilere UUID ata
+      const fixedCategories = categories.map(cat => {
+        if (!cat.id || typeof cat.id !== 'string' || cat.id.length === 0 || cat.id === 'undefined') {
+          const fixed = createSubCategoryModel({
+            name: cat.name,
+            parentCategory: cat.parentCategory,
+            icon: cat.icon || '📊',
+            color: cat.color || '#6366F1',
+            targetPercentage: cat.targetPercentage || 0,
+            assets: cat.assets || []
+          });
+          console.warn(`🔧 Bozuk kategori düzeltildi: ${cat.name} → Yeni ID: ${fixed.id}`);
+          return fixed;
+        }
+        return cat;
+      });
+      
+      setSubCategories(fixedCategories);
       setAssetMapping(mapping);
       
-      console.log(`✅ ${categories.length} alt kategori yüklendi`);
+      console.log(`✅ ${fixedCategories.length} alt kategori yüklendi`);
+      const fixedCount = fixedCategories.length - categories.filter(c => c.id && c.id !== 'undefined').length;
+      if (fixedCount > 0) {
+        console.warn(`🔧 ${fixedCount} bozuk kategori otomatik düzeltildi`);
+        // Düzeltilmiş verileri kaydet
+        saveSubCategories(fixedCategories);
+      }
       console.log(`✅ ${Object.keys(mapping).length} asset mapping yüklendi`);
     } catch (error) {
       console.error('❌ Alt kategori verileri yüklenemedi:', error);
@@ -155,18 +180,19 @@ export const SubCategoryProvider = ({ children }) => {
       
       // SubCategory'nin assets listesini güncelle
       setSubCategories(prev => prev.map(cat => {
-        if (cat.id === subCategoryId && !cat.assets.includes(assetName)) {
+        const catAssets = cat.assets || [];
+        if (cat.id === subCategoryId && !catAssets.includes(assetName)) {
           return {
             ...cat,
-            assets: [...cat.assets, assetName],
+            assets: [...catAssets, assetName],
             updatedAt: new Date().toISOString()
           };
         }
         // Önceki kategoriden çıkar
-        if (cat.assets.includes(assetName) && cat.id !== subCategoryId) {
+        if (catAssets.includes(assetName) && cat.id !== subCategoryId) {
           return {
             ...cat,
-            assets: cat.assets.filter(a => a !== assetName),
+            assets: catAssets.filter(a => a !== assetName),
             updatedAt: new Date().toISOString()
           };
         }
@@ -202,9 +228,10 @@ export const SubCategoryProvider = ({ children }) => {
       // SubCategory'den çıkar
       setSubCategories(prev => prev.map(cat => {
         if (cat.id === subCategoryId) {
+          const catAssets = cat.assets || [];
           return {
             ...cat,
-            assets: cat.assets.filter(a => a !== assetName),
+            assets: catAssets.filter(a => a !== assetName),
             updatedAt: new Date().toISOString()
           };
         }
@@ -235,6 +262,24 @@ export const SubCategoryProvider = ({ children }) => {
    */
   const getUncategorizedAssets = (allAssets) => {
     return allAssets.filter(asset => !assetMapping[asset.assetName]);
+  };
+
+  /**
+   * TÜM alt kategorileri ve eşleştirmeleri temizle
+   */
+  const clearAllSubCategories = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.SUBCATEGORIES,
+        STORAGE_KEYS.ASSET_MAPPING
+      ]);
+      setSubCategories([]);
+      setAssetMapping({});
+      console.log('✅ Tüm alt kategoriler temizlendi');
+    } catch (error) {
+      console.error('❌ Alt kategoriler temizlenemedi:', error);
+      throw error;
+    }
   };
 
   /**
@@ -275,7 +320,8 @@ export const SubCategoryProvider = ({ children }) => {
     removeAssetFromCategory,
     
     // Utility
-    refreshData
+    refreshData,
+    clearAllSubCategories
   };
 
   return (

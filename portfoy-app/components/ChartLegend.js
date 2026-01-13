@@ -31,8 +31,11 @@ export default function ChartLegend({ data = [] }) {
           ? displayPercentage.toFixed(2) 
           : displayPercentage;
         
+        // Unique key: id varsa kullan, yoksa name-color-index kombinasyonu
+        const uniqueKey = item.id || `legend-${item.name}-${item.color}-${index}`;
+        
         return (
-          <View key={`${item.name}-${index}`} style={styles.item}>
+          <View key={uniqueKey} style={styles.item}>
             <View style={[styles.dot, { backgroundColor: item.color }]} />
             <Text style={styles.name}>{item.symbol || item.name || 'İsimsiz'}</Text>
             <Text style={styles.percentage}>{formattedPercentage}%</Text>

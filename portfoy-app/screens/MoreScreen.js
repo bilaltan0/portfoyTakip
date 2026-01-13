@@ -27,11 +27,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { SettingsIcon, TrashIcon, HelpCircleIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
+import { useSubCategories } from '../context/SubCategoryContext';
 import MenuItem from '../components/MenuItem';
 import Constants from 'expo-constants';
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
+  const { clearAllSubCategories } = useSubCategories();
   const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   const handleClearData = () => {
@@ -46,6 +48,28 @@ export default function MoreScreen({ navigation }) {
           onPress: () => {
             clearAllData();
             Alert.alert('✅', 'Veriler temizlendi!');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleClearSubCategories = () => {
+    Alert.alert(
+      '⚠️ Alt Kategorileri Sıfırla',
+      'Tüm alt kategoriler ve asset eşleştirmeleri silinecek. İşlemler etkilenmeyecek. Emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Sıfırla', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllSubCategories();
+              Alert.alert('✅', 'Alt kategoriler temizlendi!');
+            } catch (error) {
+              Alert.alert('Hata', 'Temizleme başarısız: ' + error.message);
+            }
           }
         }
       ]
@@ -88,6 +112,14 @@ export default function MoreScreen({ navigation }) {
       subtitle: 'Tüm portföy ve işlem verilerini sil',
       icon: TrashIcon,
       onPress: handleClearData,
+      danger: true,
+    },
+    {
+      id: 'clearSubcategories',
+      title: 'Alt Kategorileri Sıfırla',
+      subtitle: 'Tüm alt kategorileri ve eşleştirmeleri temizle',
+      icon: TrashIcon,
+      onPress: handleClearSubCategories,
       danger: true,
     },
   ];
