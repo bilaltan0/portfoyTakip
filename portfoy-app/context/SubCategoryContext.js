@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSubCategory as createSubCategoryModel } from '../models/SubCategory';
+import { normalizeAssetKey } from '../utils/assetKeys';
 import { 
   loadSubCategories,
   saveSubCategories,
@@ -172,16 +173,18 @@ export const SubCategoryProvider = ({ children }) => {
     try {
       await assignAssetInStorage(assetName, subCategoryId);
       
-      // Asset mapping güncelle
+      // Asset mapping güncelle (normalize edilmiş anahtar kullan)
+      const key = normalizeAssetKey(assetName);
       setAssetMapping(prev => ({
         ...prev,
-        [assetName]: subCategoryId
+        [key]: subCategoryId
       }));
       
       // SubCategory'nin assets listesini güncelle
       setSubCategories(prev => prev.map(cat => {
         const catAssets = cat.assets || [];
-        if (cat.id === subCategoryId && !catAssets.includes(assetName)) {
+        const hasAsset = catAssets.some(a => normalizeAssetKey(a) === key);
+        if (cat.id === subCategoryId && !hasAsset) {
           return {
             ...cat,
             assets: [...catAssets, assetName],
@@ -189,10 +192,10 @@ export const SubCategoryProvider = ({ children }) => {
           };
         }
         // Önceki kategoriden çıkar
-        if (catAssets.includes(assetName) && cat.id !== subCategoryId) {
+        if (hasAsset && cat.id !== subCategoryId) {
           return {
             ...cat,
-            assets: catAssets.filter(a => a !== assetName),
+            assets: catAssets.filter(a => normalizeAssetKey(a) !== key),
             updatedAt: new Date().toISOString()
           };
         }
@@ -212,26 +215,27 @@ export const SubCategoryProvider = ({ children }) => {
    */
   const removeAssetFromCategory = async (assetName) => {
     try {
-      const subCategoryId = assetMapping[assetName];
-      
+      const key = normalizeAssetKey(assetName);
+      const subCategoryId = assetMapping[key];
+
       if (!subCategoryId) {
         return true; // Zaten kategorisiz
       }
-      
+
       await removeAssetInStorage(assetName);
-      
+
       // Asset mapping'den sil
       const updatedMapping = { ...assetMapping };
-      delete updatedMapping[assetName];
+      delete updatedMapping[key];
       setAssetMapping(updatedMapping);
-      
+
       // SubCategory'den çıkar
       setSubCategories(prev => prev.map(cat => {
         if (cat.id === subCategoryId) {
           const catAssets = cat.assets || [];
           return {
             ...cat,
-            assets: catAssets.filter(a => a !== assetName),
+            assets: catAssets.filter(a => normalizeAssetKey(a) !== key),
             updatedAt: new Date().toISOString()
           };
         }
@@ -250,7 +254,8 @@ export const SubCategoryProvider = ({ children }) => {
    * Varlığın hangi kategoride olduğunu bul
    */
   const getSubCategoryForAssetName = (assetName) => {
-    const subCategoryId = assetMapping[assetName];
+    const key = normalizeAssetKey(assetName);
+    const subCategoryId = assetMapping[key];
     if (!subCategoryId) {
       return null;
     }
@@ -261,7 +266,7 @@ export const SubCategoryProvider = ({ children }) => {
    * Kategorisiz varlıkları getir
    */
   const getUncategorizedAssets = (allAssets) => {
-    return allAssets.filter(asset => !assetMapping[asset.assetName]);
+    return allAssets.filter(asset => !assetMapping[normalizeAssetKey(asset.assetName)]);
   };
 
   /**

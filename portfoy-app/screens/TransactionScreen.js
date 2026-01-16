@@ -54,8 +54,18 @@ export default function TransactionScreen({ route, navigation }) {
     createSubCategory,
     assignAssetToSubCategory, 
     removeAssetFromCategory,
-    getSubCategoryForAssetName
+    getSubCategoryForAssetName,
+    updateSubCategory,
+    deleteSubCategory
   } = useSubCategories();
+  // (Uzun basım ile düzenle/sil için) aktif menü state aşağıda
+  // edit modal kontrolü
+  const [isEditingSubCategory, setIsEditingSubCategory] = useState(false);
+  const [editingSubCategoryId, setEditingSubCategoryId] = useState(null);
+  // alt kategori işlem menüsü (görsel, modal tabanlı)
+  const [showSubCategoryMenu, setShowSubCategoryMenu] = useState(false);
+  const [activeSubCategoryForMenu, setActiveSubCategoryForMenu] = useState(null);
+  const [menuConfirmDelete, setMenuConfirmDelete] = useState(false);
   // Edit mode kontrolü
   const editingTransaction = route?.params?.editingTransaction;
   const isEditMode = !!editingTransaction;
@@ -454,38 +464,27 @@ export default function TransactionScreen({ route, navigation }) {
 
     // Edit mode: Mevcut transaction'ı güncelle
     if (isEditMode) {
-      const updatedTransaction = {
+      const updatedData = {
         mainCategory,
         assetName: assetName.trim(),
-        symbol: selectedAssetInfo?.symbol || editingTransaction.symbol || null,
-        provider: selectedAssetInfo?.provider || editingTransaction.provider || null,
-        apiId: selectedAssetInfo?.id || editingTransaction.apiId || null,
-        apiCurrency: selectedAssetInfo?.currency || editingTransaction.apiCurrency || null,
+        symbol: selectedAssetInfo?.symbol || null,
+        provider: selectedAssetInfo?.provider || null,
+        apiId: selectedAssetInfo?.id || null,
+        apiCurrency: selectedAssetInfo?.currency || null,
         subCategoryId: selectedSubCategory?.id || null,
         type: transactionType,
         quantity: parseFloat(quantity),
         unitPrice: parseFloat(unitPrice),
         currency,
         note: note.trim(),
-        date: editingTransaction.date, // Orijinal tarih korunur
       };
 
-      console.log('✏️ Transaction güncelleniyor:', {
-        editingId: editingTransaction.id,
-        editingIdType: typeof editingTransaction.id,
-        updatedTransaction
-      });
-
-      const success = await updateTransaction(editingTransaction.id, updatedTransaction);
-      console.log('🔁 updateTransaction returned:', success);
-
-      if (success) {
+      const ok = await updateTransaction(editingTransaction.id, updatedData);
+      if (ok) {
         try {
-          // Update asset-to-subcategory mapping according to selection
           if (selectedSubCategory && selectedSubCategory.id) {
             await assignAssetToSubCategory(assetName.trim(), selectedSubCategory.id);
           } else {
-            // If user selected 'Atanmayacak' (no subcategory), remove mapping
             await removeAssetFromCategory(assetName.trim());
           }
         } catch (err) {
@@ -532,17 +531,18 @@ export default function TransactionScreen({ route, navigation }) {
     const success = await addTransaction(transaction);
 
     if (success) {
-      // Form temizle (kategori korunur)
-      resetForm();
-
-      // Eğer alt kategori seçildiyse mapping'i güncelle
-      if (selectedSubCategory && selectedSubCategory.id) {
+      // Eğer alt kategori seçildiyse mapping'i güncelle -> önce mapping'i kaydet, sonra formu temizle
+      const chosenSubCategoryId = selectedSubCategory?.id || null;
+      if (chosenSubCategoryId) {
         try {
-          await assignAssetToSubCategory(transaction.assetName, selectedSubCategory.id);
+          await assignAssetToSubCategory(transaction.assetName, chosenSubCategoryId);
         } catch (err) {
           console.error('⚠️ Mapping update failed after transaction create:', err);
         }
       }
+
+      // Form temizle (kategori korunur)
+      resetForm();
 
       // Toast bildirim göster - Artık kesin kaydedildi!
       showToast('İşlem gerçekleştirildi', transactionType === 'buy' ? 'success' : 'error');
@@ -603,7 +603,7 @@ export default function TransactionScreen({ route, navigation }) {
 
       console.log('✅ Yeni kategori oluşturuldu:', newSubCat);
       
-      setSelectedSubCategory(newSubCat);
+  setSelectedSubCategory(newSubCat);
       setShowSubCategoryModal(false);
       setNewSubCategoryName('');
       setNewSubCategoryIcon('📁');
@@ -616,6 +616,95 @@ export default function TransactionScreen({ route, navigation }) {
     } finally {
       setIsCreatingSubCategory(false);
     }
+  };
+
+  // Alt kategori düzenleme işlemi
+  const handleUpdateSubCategory = async () => {
+    if (!editingSubCategoryId) return;
+    const trimmedName = newSubCategoryName.trim();
+    if (!trimmedName) {
+      Alert.alert('Hata', 'Lütfen kategori adı girin');
+      return;
+    }
+
+    try {
+      const updated = await updateSubCategory(editingSubCategoryId, {
+        name: trimmedName,
+        icon: newSubCategoryIcon,
+        color: newSubCategoryColor
+      });
+
+      // Yerel seçimleri güncelle
+      setSelectedSubCategory(updated);
+      showToast('Kategori güncellendi', 'success');
+    } catch (err) {
+      console.error('❌ Kategori güncelleme hatası:', err);
+      Alert.alert('Hata', 'Kategori güncellenemedi: ' + err.message);
+    } finally {
+      setIsEditingSubCategory(false);
+      setEditingSubCategoryId(null);
+      setShowSubCategoryModal(false);
+      setNewSubCategoryName('');
+      setNewSubCategoryIcon('📁');
+      setNewSubCategoryColor('#3B82F6');
+    }
+  };
+
+  // Alt kategori silme
+  const handleDeleteSubCategory = async (id) => {
+    // artık görsel menü üzerinden yönlendirilecek; yine de fonksiyonel silme burada kalıyor
+    try {
+      await deleteSubCategory(id);
+      // Eğer silinen seçiliyse temizle
+      if (selectedSubCategory?.id === id) {
+        setSelectedSubCategory(null);
+      }
+  // temizleme sonrası UI state güncellemesi
+      showToast('Kategori silindi', 'success');
+      return true;
+    } catch (err) {
+      console.error('❌ Kategori silme hatası:', err);
+      Alert.alert('Hata', 'Kategori silinemedi: ' + err.message);
+      return false;
+    }
+  };
+
+  const handleOpenSubCategoryMenu = (subCat) => {
+    setActiveSubCategoryForMenu(subCat);
+    setMenuConfirmDelete(false);
+    setShowSubCategoryMenu(true);
+  };
+
+  const handleMenuEdit = () => {
+    const subCat = activeSubCategoryForMenu;
+    if (!subCat) return;
+    setIsEditingSubCategory(true);
+    setEditingSubCategoryId(subCat.id);
+    setNewSubCategoryName(subCat.name);
+    setNewSubCategoryIcon(subCat.icon || '📁');
+    setNewSubCategoryColor(subCat.color || '#3B82F6');
+    setShowSubCategoryMenu(false);
+    setShowSubCategoryModal(true);
+  };
+
+  const handleMenuInitiateDelete = () => {
+    setMenuConfirmDelete(true);
+  };
+
+  const handleMenuConfirmDelete = async () => {
+    if (!activeSubCategoryForMenu) return;
+    const id = activeSubCategoryForMenu.id;
+    const ok = await handleDeleteSubCategory(id);
+    if (ok) {
+      setShowSubCategoryMenu(false);
+      setActiveSubCategoryForMenu(null);
+    }
+  };
+
+  const handleCloseSubCategoryMenu = () => {
+    setShowSubCategoryMenu(false);
+    setMenuConfirmDelete(false);
+    setActiveSubCategoryForMenu(null);
   };
 
   // Handle buy button
@@ -721,6 +810,7 @@ export default function TransactionScreen({ route, navigation }) {
                           { borderColor: subCat.color }
                         ]}
                         onPress={() => setSelectedSubCategory(subCat)}
+                        onLongPress={() => handleOpenSubCategoryMenu(subCat)}
                         activeOpacity={0.7}
                       >
                         <Text style={[
@@ -735,7 +825,12 @@ export default function TransactionScreen({ route, navigation }) {
                   <TouchableOpacity
                     key="create-new-subcategory"
                     style={[styles.subCategoryChip, styles.subCategoryChipNew]}
-                    onPress={() => setShowSubCategoryModal(true)}
+                    onPress={() => {
+                      // Yeni oluşturma moduysa düzenleme flag'lerini sıfırla
+                      setIsEditingSubCategory(false);
+                      setEditingSubCategoryId(null);
+                      setShowSubCategoryModal(true);
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.subCategoryChipTextNew}>
@@ -744,14 +839,7 @@ export default function TransactionScreen({ route, navigation }) {
                   </TouchableOpacity>
                 ]}
               </View>
-              {selectedSubCategory && (
-                <TouchableOpacity 
-                  style={styles.clearSubCategoryButton}
-                  onPress={() => setSelectedSubCategory(null)}
-                >
-                  <Text style={styles.clearSubCategoryText}>✕ Seçimi Kaldır</Text>
-                </TouchableOpacity>
-              )}
+              {/* selection is cleared by tapping another chip; explicit clear button removed per UX request */}
             </View>
           )}
 
@@ -1088,9 +1176,14 @@ export default function TransactionScreen({ route, navigation }) {
           <View style={styles.modalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>✨ Yeni Alt Kategori</Text>
+              <Text style={styles.modalTitle}>{isEditingSubCategory ? '✏️ Alt Kategori Düzenle' : '✨ Yeni Alt Kategori'}</Text>
               <TouchableOpacity 
-                onPress={() => setShowSubCategoryModal(false)}
+                onPress={() => {
+                  setShowSubCategoryModal(false);
+                  // düzenleme modunu kapat
+                  setIsEditingSubCategory(false);
+                  setEditingSubCategoryId(null);
+                }}
                 style={styles.modalCloseButton}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
@@ -1177,6 +1270,8 @@ export default function TransactionScreen({ route, navigation }) {
                   setNewSubCategoryName('');
                   setNewSubCategoryIcon('📁');
                   setNewSubCategoryColor('#3B82F6');
+                  setIsEditingSubCategory(false);
+                  setEditingSubCategoryId(null);
                 }}
               >
                 <Text style={styles.modalButtonTextCancel}>İptal</Text>
@@ -1184,16 +1279,61 @@ export default function TransactionScreen({ route, navigation }) {
 
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCreate]}
-                onPress={handleCreateSubCategory}
+                onPress={isEditingSubCategory ? handleUpdateSubCategory : handleCreateSubCategory}
                 disabled={isCreatingSubCategory}
               >
                 {isCreatingSubCategory ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <Text style={styles.modalButtonTextCreate}>Oluştur</Text>
+                  <Text style={styles.modalButtonTextCreate}>{isEditingSubCategory ? 'Güncelle' : 'Oluştur'}</Text>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Alt kategori işlem menüsü - şık bottom sheet tarzı */}
+      <Modal
+        visible={showSubCategoryMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseSubCategoryMenu}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseSubCategoryMenu}>
+          <View style={styles.menuBackdrop} />
+        </TouchableWithoutFeedback>
+
+        <View style={styles.menuContainer} pointerEvents="box-none">
+          <View style={styles.menuCard}>
+            <Text style={styles.menuTitle}>{activeSubCategoryForMenu?.icon} {activeSubCategoryForMenu?.name}</Text>
+            {!menuConfirmDelete ? (
+              <>
+                <TouchableOpacity style={styles.menuButton} onPress={handleMenuEdit}>
+                  <Text style={styles.menuButtonText}>Düzenle</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.menuButton, styles.menuButtonDestructive]} onPress={handleMenuInitiateDelete}>
+                  <Text style={[styles.menuButtonText, styles.menuButtonTextDestructive]}>Sil</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuButton} onPress={handleCloseSubCategoryMenu}>
+                  <Text style={styles.menuButtonText}>Kapat</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.menuDangerText}>Bu alt kategoriyi silmek istediğinize emin misiniz? İşlem geri alınamaz.</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                  <TouchableOpacity style={[styles.modalButton, styles.modalButtonCancel]} onPress={() => setMenuConfirmDelete(false)}>
+                    <Text style={styles.modalButtonTextCancel}>İptal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalButton, styles.modalButtonCreate]} onPress={handleMenuConfirmDelete}>
+                    <Text style={styles.modalButtonTextCreate}>Sil</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -1205,6 +1345,57 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
+  },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)'
+  },
+  menuContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    padding: 16
+  },
+  menuCard: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 8
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12
+  },
+  menuButton: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: '#F3F4F6'
+  },
+  menuButtonText: {
+    fontSize: 15,
+    color: '#111827'
+  },
+  menuButtonDestructive: {
+    backgroundColor: '#fff0f0'
+  },
+  menuButtonTextDestructive: {
+    color: '#b91c1c',
+    fontWeight: '700'
+  },
+  menuDangerText: {
+    color: '#b91c1c',
+    fontSize: 14,
+    marginTop: 4
   },
   header: {
     flexDirection: 'row',
@@ -1563,17 +1754,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
   },
-  clearSubCategoryButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  clearSubCategoryText: {
-    fontSize: 13,
-    color: COLORS.error,
-    fontWeight: '500',
-  },
+  
   // Modal Styles
   modalOverlay: {
     flex: 1,
