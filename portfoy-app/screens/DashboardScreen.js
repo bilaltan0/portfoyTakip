@@ -78,6 +78,7 @@ import { STORAGE_KEYS } from '../constants/storage.constants';
 import { getQuantityLabel } from '../utils/assetUtils';
 import { getCategoryColor, generateColorForAsset } from '../utils/colorUtils';
 import { convertCurrency as convertCurrencyUtil, formatCurrency, getCurrencySymbol } from '../utils/currencyUtils';
+import { createPreselectedAsset } from '../utils/navigationHelpers';
 
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
@@ -837,14 +838,12 @@ export default function DashboardScreen({ navigation }) {
                       };
                       
                       // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
-                      navigation.navigate('İşlem Yap', {
-                        preselectedAsset: {
-                          mainCategory: selectedCategory,
-                          assetName: asset.fullName || asset.name,
-                          type: 'buy',
-                          selectedAssetInfo: assetInfo // ✅ Asset bilgilerini ekle
-                        }
-                      });
+                      navigation.navigate('İşlem Yap', createPreselectedAsset(
+                        selectedCategory,
+                        asset.fullName || asset.name,
+                        'buy',
+                        assetInfo
+                      ));
                     }}
                   />
                 );

@@ -254,28 +254,37 @@ export function PortfolioProvider({ children }) {
    */
   const updateTransaction = async (transactionId, updatedData) => {
     try {
-      const updatedPortfolios = portfolios.map(portfolio => 
+      // Detect whether any transaction was actually updated
+      let found = false;
+      const updatedPortfolios = portfolios.map(portfolio =>
         portfolio.id === activePortfolioId
           ? {
               ...portfolio,
-              transactions: portfolio.transactions.map(t =>
-                t.id === transactionId
-                  ? { ...t, ...updatedData, id: transactionId } // ID'yi koru
-                  : t
-              )
+              transactions: portfolio.transactions.map(t => {
+                if (String(t.id) === String(transactionId)) {
+                  found = true;
+                  return { ...t, ...updatedData, id: transactionId }; // keep id
+                }
+                return t;
+              })
             }
           : portfolio
       );
-      
+
+      if (!found) {
+        console.warn('⚠️ updateTransaction: transaction not found:', transactionId);
+        return false;
+      }
+
       setPortfolios(updatedPortfolios);
-      
-      // AsyncStorage'a kaydet
+
+      // Persist
       await AsyncStorage.setItem(
         STORAGE_KEYS.PORTFOLIOS,
         JSON.stringify(updatedPortfolios)
       );
-      
-      console.log('✏️ İşlem güncellendi ve kaydedildi:', transactionId);
+
+      console.log('✏️ İşlem güncellendi ve kaydedildi:', transactionId, 'updates:', updatedData);
       return true;
     } catch (error) {
       console.error('❌ İşlem güncelleme hatası:', error);

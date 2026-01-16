@@ -6,6 +6,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizeAssetKey } from './assetKeys';
 
 // Storage Keys
 export const STORAGE_KEYS = {
@@ -163,7 +164,27 @@ export const loadAssetMapping = async () => {
     if (!data) {
       return {};
     }
-    return JSON.parse(data);
+    const raw = JSON.parse(data);
+    // Normalize keys and migrate if needed
+    const normalized = {};
+    let changed = false;
+    Object.keys(raw).forEach((k) => {
+      const nk = normalizeAssetKey(k);
+      normalized[nk] = raw[k];
+      if (nk !== k) changed = true;
+    });
+
+    if (changed) {
+      // Persist normalized mapping
+      try {
+        await AsyncStorage.setItem(STORAGE_KEYS.ASSET_MAPPING, JSON.stringify(normalized));
+        console.log('🔧 Asset mapping migrated to normalized keys');
+      } catch (e) {
+        console.warn('⚠️ Failed to persist normalized mapping:', e);
+      }
+    }
+
+    return normalized;
   } catch (error) {
     console.error('❌ Asset mapping yüklenemedi:', error);
     return {};
@@ -175,9 +196,15 @@ export const loadAssetMapping = async () => {
  */
 export const saveAssetMapping = async (mapping) => {
   try {
+    // Ensure mapping keys are normalized before saving
+    const normalized = {};
+    Object.keys(mapping || {}).forEach(k => {
+      normalized[normalizeAssetKey(k)] = mapping[k];
+    });
+
     await AsyncStorage.setItem(
       STORAGE_KEYS.ASSET_MAPPING,
-      JSON.stringify(mapping)
+      JSON.stringify(normalized)
     );
     return true;
   } catch (error) {
@@ -192,9 +219,9 @@ export const saveAssetMapping = async (mapping) => {
 export const assignAssetToSubCategory = async (assetName, subCategoryId) => {
   try {
     const mapping = await loadAssetMapping();
-    
+    const key = normalizeAssetKey(assetName);
     // Önceki eşleştirmeyi kontrol et
-    const previousSubCategoryId = mapping[assetName];
+    const previousSubCategoryId = mapping[key];
     
     if (previousSubCategoryId === subCategoryId) {
       return true; // Zaten aynı kategoride
@@ -205,21 +232,24 @@ export const assignAssetToSubCategory = async (assetName, subCategoryId) => {
       const previousSubCategory = await getSubCategoryById(previousSubCategoryId);
       if (previousSubCategory) {
         await updateSubCategory(previousSubCategoryId, {
-          assets: previousSubCategory.assets.filter(a => a !== assetName)
+          assets: previousSubCategory.assets.filter(a => normalizeAssetKey(a) !== key)
         });
       }
     }
     
-    // Yeni kategoriye ata
-    mapping[assetName] = subCategoryId;
+    // Yeni kategoriye ata (normalized key)
+    mapping[key] = subCategoryId;
     await saveAssetMapping(mapping);
     
     // SubCategory'deki assets listesine de ekle
     const subCategory = await getSubCategoryById(subCategoryId);
-    if (subCategory && !subCategory.assets.includes(assetName)) {
-      await updateSubCategory(subCategoryId, {
-        assets: [...subCategory.assets, assetName]
-      });
+    if (subCategory) {
+      const catAssets = Array.isArray(subCategory.assets) ? subCategory.assets : [];
+      if (!catAssets.some(a => normalizeAssetKey(a) === key)) {
+        await updateSubCategory(subCategoryId, {
+          assets: [...catAssets, assetName]
+        });
+      }
     }
     
     console.log(`✅ ${assetName} → ${subCategory?.name || subCategoryId}`);
@@ -236,21 +266,22 @@ export const assignAssetToSubCategory = async (assetName, subCategoryId) => {
 export const removeAssetFromSubCategory = async (assetName) => {
   try {
     const mapping = await loadAssetMapping();
-    const subCategoryId = mapping[assetName];
+    const key = normalizeAssetKey(assetName);
+    const subCategoryId = mapping[key];
     
     if (!subCategoryId) {
       return true; // Zaten kategorisiz
     }
     
-    // Mapping'den sil
-    delete mapping[assetName];
+    // Mapping'den sil (normalized key)
+    delete mapping[key];
     await saveAssetMapping(mapping);
     
     // SubCategory'deki assets listesinden çıkar
     const subCategory = await getSubCategoryById(subCategoryId);
     if (subCategory) {
       await updateSubCategory(subCategoryId, {
-        assets: subCategory.assets.filter(a => a !== assetName)
+        assets: (subCategory.assets || []).filter(a => normalizeAssetKey(a) !== key)
       });
     }
     
@@ -268,7 +299,8 @@ export const removeAssetFromSubCategory = async (assetName) => {
 export const getSubCategoryForAsset = async (assetName) => {
   try {
     const mapping = await loadAssetMapping();
-    const subCategoryId = mapping[assetName];
+    const key = normalizeAssetKey(assetName);
+    const subCategoryId = mapping[key];
     
     if (!subCategoryId) {
       return null; // Kategorisiz
@@ -287,16 +319,16 @@ export const getSubCategoryForAsset = async (assetName) => {
 const removeAssetMappingsForSubCategory = async (subCategoryId) => {
   try {
     const mapping = await loadAssetMapping();
-    const assetNames = Object.keys(mapping).filter(
-      assetName => mapping[assetName] === subCategoryId
+    const assetKeys = Object.keys(mapping).filter(
+      assetKey => mapping[assetKey] === subCategoryId
     );
-    
-    assetNames.forEach(assetName => {
-      delete mapping[assetName];
+
+    assetKeys.forEach(assetKey => {
+      delete mapping[assetKey];
     });
-    
+
     await saveAssetMapping(mapping);
-    console.log(`✅ ${assetNames.length} asset kategoriden çıkarıldı`);
+    console.log(`✅ ${assetKeys.length} asset kategoriden çıkarıldı`);
     return true;
   } catch (error) {
     console.error('❌ Mapping temizleme başarısız:', error);

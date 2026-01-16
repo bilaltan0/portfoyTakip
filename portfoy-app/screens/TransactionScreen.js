@@ -53,7 +53,8 @@ export default function TransactionScreen({ route, navigation }) {
     subCategories,
     createSubCategory,
     assignAssetToSubCategory, 
-    removeAssetFromCategory 
+    removeAssetFromCategory,
+    getSubCategoryForAssetName
   } = useSubCategories();
   // Edit mode kontrolü
   const editingTransaction = route?.params?.editingTransaction;
@@ -146,8 +147,22 @@ export default function TransactionScreen({ route, navigation }) {
       if (editingTransaction.subCategoryId) {
         const existing = subCategories.find(sc => sc.id === editingTransaction.subCategoryId) || null;
         setSelectedSubCategory(existing);
+        console.log('🔎 edit: selectedSubCategory set from editingTransaction.subCategoryId ->', existing && { id: existing.id, name: existing.name });
       } else {
-        setSelectedSubCategory(null);
+        // Eğer transaction kendi içinde subCategoryId yoksa, asset->subcategory mapping'ine bak
+        try {
+          const mapped = getSubCategoryForAssetName(editingTransaction.assetName);
+          if (mapped) {
+            setSelectedSubCategory(mapped);
+            console.log('🔎 edit: selectedSubCategory set from asset mapping ->', { id: mapped.id, name: mapped.name });
+          } else {
+            setSelectedSubCategory(null);
+            console.log('🔎 edit: no subCategoryId on editingTransaction and no asset mapping found');
+          }
+        } catch (err) {
+          console.error('❌ edit: error while checking asset->subcategory mapping', err);
+          setSelectedSubCategory(null);
+        }
       }
     }
   }, [editingTransaction, subCategories]);
@@ -164,14 +179,32 @@ export default function TransactionScreen({ route, navigation }) {
       
       if (preselectedAsset) {
         isPreselectingRef.current = true;
+        console.log('➡️ TransactionScreen preselect params:', preselectedAsset);
         setMainCategory(preselectedAsset.mainCategory || '');
         setAssetName(preselectedAsset.assetName || '');
-        
+
         // ✅ selectedAssetInfo varsa set et (buton için gerekli!)
         if (preselectedAsset.selectedAssetInfo) {
           setSelectedAssetInfo(preselectedAsset.selectedAssetInfo);
         }
-        
+
+        // Eğer bu varlık zaten bir alt kategoriye atanmışsa, otomatik seç ve kullanıcıyı bilgilendir
+        try {
+          const assigned = getSubCategoryForAssetName(preselectedAsset.assetName);
+          if (assigned) {
+            setSelectedSubCategory(assigned);
+            console.log('🔎 preselect: asset auto-assigned to subcategory ->', { id: assigned.id, name: assigned.name });
+            // Küçük bir toast ile kullanıcıyı bilgilendir (görsel geri bildirim)
+            try {
+              showToast(`Varlık otomatik olarak alt kategoriye atandı: ${assigned.name}`, 'success');
+            } catch (tErr) {
+              // ignore toast errors
+            }
+          }
+        } catch (err) {
+          console.warn('❌ preselect: error while checking asset->subcategory mapping', err);
+        }
+
         // Parametreleri temizle
         navigation.setParams({ preselectedAsset: undefined });
         // Preselecting işlemi bittiğini işaretle
@@ -283,6 +316,17 @@ export default function TransactionScreen({ route, navigation }) {
       category: asset.category,
       fullName: displayName
     });
+    // Eğer bu varlık zaten bir alt kategoriye atanmışsa, otomatik seç
+    try {
+      const assigned = getSubCategoryForAssetName(cleanName);
+      if (assigned) {
+        setSelectedSubCategory(assigned);
+      } else {
+        setSelectedSubCategory(null);
+      }
+    } catch (err) {
+      // ignore
+    }
     
     console.log('✅ Varlık seçildi:', {
       original: displayName,
@@ -426,9 +470,14 @@ export default function TransactionScreen({ route, navigation }) {
         date: editingTransaction.date, // Orijinal tarih korunur
       };
 
-      console.log('✏️ Transaction güncelleniyor:', editingTransaction.id);
+      console.log('✏️ Transaction güncelleniyor:', {
+        editingId: editingTransaction.id,
+        editingIdType: typeof editingTransaction.id,
+        updatedTransaction
+      });
 
       const success = await updateTransaction(editingTransaction.id, updatedTransaction);
+      console.log('🔁 updateTransaction returned:', success);
 
       if (success) {
         try {
