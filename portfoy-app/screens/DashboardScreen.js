@@ -87,7 +87,10 @@ export default function DashboardScreen({ navigation }) {
     subCategories, 
     loading: subCategoriesLoading, 
     createSubCategory,
-    refreshData: refreshSubCategories 
+    refreshData: refreshSubCategories,
+    getSubCategoriesByCategory,
+    getSubCategoryById,
+    getSubCategoryForAssetName
   } = useSubCategories();
   
   // Gizlilik state (tutar gizleme/gösterme)
@@ -101,6 +104,8 @@ export default function DashboardScreen({ navigation }) {
   
   // Kategori drill-down state
   const [selectedCategory, setSelectedCategory] = useState(null);
+  // Alt kategori seçimi (ana kategori seçildiyse burada alt kategori seçimi olabilir)
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
 
   // Debug: Verileri temizle
   const handleClearData = () => {
@@ -454,6 +459,109 @@ export default function DashboardScreen({ navigation }) {
   };
 
   /**
+   * Verilen ana kategori için alt kategori dağılımını hesapla
+   * Eğer alt kategori yoksa boş dizi döner
+   */
+  const getSubCategoryDistribution = (parentCategory) => {
+    const subcats = getSubCategoriesByCategory(parentCategory) || [];
+    if (!subcats || subcats.length === 0) return [];
+
+    // Hazırla: ana kategori içindeki varlık verileri (name -> data)
+    const assets = Object.fromEntries(collectCategoryAssets(parentCategory));
+
+    const results = subcats.map((subcat) => {
+      const assetNames = Array.isArray(subcat.assets) ? subcat.assets : [];
+      let totalInTRY = 0;
+
+      assetNames.forEach((assetName) => {
+        const entry = assets[assetName];
+        if (!entry) return;
+
+        // entry: { totalQuantity, totalCostInTRY, transactions, symbol }
+        const priceData = prices[assetName];
+        let currentValueInTRY = entry.totalCostInTRY;
+
+        if (priceData && priceData.price > 0 && !priceData.error) {
+          const priceCurrency = priceData.currency || 'TRY';
+          const currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+          currentValueInTRY = entry.totalQuantity * currentPriceInTRY;
+        }
+
+        totalInTRY += currentValueInTRY;
+      });
+
+      return {
+        id: subcat.id,
+        name: subcat.name,
+        value: convertCurrency(totalInTRY),
+        rawValue: totalInTRY,
+        color: subcat.color || generateColorForAsset(subcat.name),
+      };
+    });
+
+    return results;
+  };
+
+  /**
+   * Verilen alt kategori id'si için içindeki varlıkların detaylarını döner
+   */
+  const getAssetsForSubCategory = (parentCategory, subCategoryId) => {
+    const subcat = getSubCategoryById(subCategoryId);
+    if (!subcat) return [];
+
+    // Collect category assets map
+    const assetsMap = Object.fromEntries(collectCategoryAssets(parentCategory));
+
+    const assetList = (subcat.assets || []).map((assetName, index) => {
+      const data = assetsMap[assetName];
+      if (!data) return null;
+
+      const totalBuyQuantity = data.transactions
+        .filter(tx => tx.type === 'buy')
+        .reduce((sum, tx) => sum + tx.quantity, 0);
+
+      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
+
+      const priceData = prices[assetName];
+      let currentPriceInTRY = null;
+      let hasLivePrice = false;
+      let currentValueInTRY = data.totalCostInTRY;
+
+      if (priceData && priceData.price > 0 && !priceData.error) {
+        const priceCurrency = priceData.currency || 'USD';
+        currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+        currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+        hasLivePrice = true;
+      }
+
+      return {
+        name: assetName.includes('(') ? assetName.split('(')[0].trim() : assetName,
+        fullName: assetName,
+        symbol: data.symbol || null,
+        value: convertCurrency(currentValueInTRY),
+        rawValue: currentValueInTRY,
+        quantity: data.totalQuantity,
+        avgPrice: convertCurrency(avgCostInTRY),
+        currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
+        hasLivePrice,
+        color: generateColorForAsset(assetName, index),
+        quantityLabel: 'Miktar',
+      };
+    }).filter(Boolean);
+
+    // Yüzdeleri hesapla
+    const categoryTotal = assetList.reduce((sum, it) => sum + it.value, 0);
+    return assetList.map((item) => {
+      const exactPercentage = categoryTotal > 0 ? (item.value / categoryTotal) * 100 : 0;
+      return {
+        ...item,
+        percentage: Math.round(exactPercentage),
+        exactPercentage
+      };
+    });
+  };
+
+  /**
    * KRİPTO kategorisi için detay hesaplama
    */
   const getCryptoDetail = () => {
@@ -678,20 +786,57 @@ export default function DashboardScreen({ navigation }) {
     });
   };
   
-  // Gösterilecek dağılım: kategori seçiliyse detay, değilse genel
-  const displayDistribution = selectedCategory 
-    ? getCategoryDetail(selectedCategory)
-    : portfolioDistribution;
-  
-  // Başlık: kategori seçiliyse "{Kategori} Dağılımı", değilse "Varlık Dağılımı"
-  const distributionTitle = selectedCategory 
-    ? `${selectedCategory} Dağılımı`
-    : 'Varlık Dağılımı';
-  
-  // Merkez değeri: kategori seçiliyse o kategorinin toplamı, değilse genel toplam
-  const centerValue = selectedCategory
-    ? displayDistribution.reduce((sum, item) => sum + item.value, 0)
-    : totalPortfolioValue;
+  // Gösterilecek dağılım:
+  // - Eğer kategori seçili değilse: genel portföy dağılımı
+  // - Eğer kategori seçili ve o kategorinin alt kategorileri varsa: önce alt kategoriler gösterilir
+  // - Eğer alt kategori seçildiyse: seçili alt kategorinin içindeki varlıklar gösterilir
+  let displayDistribution = portfolioDistribution;
+  let distributionTitle = 'Varlık Dağılımı';
+  let centerValue = totalPortfolioValue;
+
+  if (selectedCategory) {
+    // Alt kategori listesi gösterilecek mi?
+    const subcatList = getSubCategoriesByCategory(selectedCategory) || [];
+
+    if (selectedSubCategory) {
+      // Alt kategori içindeki varlıkları göster
+      displayDistribution = getAssetsForSubCategory(selectedCategory, selectedSubCategory);
+      const subcatObj = getSubCategoryById(selectedSubCategory);
+      distributionTitle = subcatObj ? `${subcatObj.name} Varlıkları` : `${selectedCategory} Varlıkları`;
+      centerValue = displayDistribution.reduce((sum, item) => sum + item.value, 0);
+    } else if (subcatList && subcatList.length > 0) {
+      // Alt kategorileri göster (ilk seviye)
+      displayDistribution = getSubCategoryDistribution(selectedCategory).map(item => {
+        // exactPercentage hesaba rawValue üzerinden yapılacak daha sonra ChartLegend/doughnut hesaplayacak
+        return {
+          id: item.id,
+          name: item.name,
+          value: item.value,
+          rawValue: item.rawValue,
+          color: item.color
+        };
+      });
+      distributionTitle = `${selectedCategory} Dağılımı`;
+      centerValue = displayDistribution.reduce((sum, item) => sum + item.value, 0);
+    } else {
+      // Alt kategori yoksa mevcut davranış (varlık listesi)
+      displayDistribution = getCategoryDetail(selectedCategory);
+      distributionTitle = `${selectedCategory} Dağılımı`;
+      centerValue = displayDistribution.reduce((sum, item) => sum + item.value, 0);
+    }
+  }
+
+  // displayDistribution içindeki öğelere exactPercentage/percentage ekle (grafik ve legend için)
+  const totalForPercentage = centerValue || 0;
+  displayDistribution = displayDistribution.map(item => {
+    const valueForPct = typeof item.value === 'number' ? item.value : (item.rawValue || 0);
+    const exactPercentage = totalForPercentage > 0 ? (valueForPct / totalForPercentage) * 100 : (item.exactPercentage || 0);
+    return {
+      ...item,
+      exactPercentage,
+      percentage: Math.round(exactPercentage)
+    };
+  });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -753,7 +898,14 @@ export default function DashboardScreen({ navigation }) {
             {selectedCategory ? (
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={() => setSelectedCategory(null)}
+                onPress={() => {
+                  // Eğer alt kategori içindeysek önce alt kategori seçimini temizle
+                  if (selectedSubCategory) {
+                    setSelectedSubCategory(null);
+                  } else {
+                    setSelectedCategory(null);
+                  }
+                }}
               >
                 <Text style={styles.backButtonText}>← Geri</Text>
               </TouchableOpacity>
@@ -800,52 +952,80 @@ export default function DashboardScreen({ navigation }) {
         {/* Quick Look Cards / Asset Detail Cards */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsRow} contentContainerStyle={{ paddingHorizontal: 16 }}>
           {selectedCategory ? (
-            // Kategori seçiliyse: Varlık detay kartları
+            // Kategori seçiliyse: 3 durum olabilir
+            // 1) selectedSubCategory varsa -> displayDistribution = varlıklar (AssetDetailCard)
+            // 2) selectedSubCategory yok ve displayDistribution items represent subcategories -> render QuickViewCard for each subcategory
+            // 3) selectedSubCategory yok and no subcategories -> fallback asset detail cards
             displayDistribution.length > 0 ? (
               displayDistribution.map((asset) => {
-                // Bu varlığın anlık fiyatını bul - fullName veya name ile dene
-                const priceData = prices[asset.fullName] || prices[asset.name];
-                
-                // currentPrice zaten getCategoryDetail'de hesaplanmış!
-                // Onu kullan, yoksa prices'tan al
-                let currentPrice = asset.currentPrice || null;
-                console.log(`🎯 AssetDetailCard: ${asset.name}, currentPrice=${currentPrice}, priceData=`, priceData);
+                // Eğer item bir alt kategori objesi ise (id varsa) render QuickViewCard
+                const isSubCategoryItem = !!asset.id && !asset.fullName && !asset.quantity;
+                if (isSubCategoryItem && !selectedSubCategory) {
+                  // Alt kategori kartı göster
+                  const icon = null; // no icon for subcategory (could use generic)
+                  return (
+                    <QuickViewCard
+                      key={asset.id}
+                      icon={icon}
+                      name={asset.name}
+                      value={asset.value}
+                      change={asset.exactPercentage || asset.percentage || 0}
+                      color={asset.color}
+                      currencySymbol={currencySymbol}
+                      onPress={() => setSelectedSubCategory(asset.id)}
+                      isBalanceHidden={isBalanceHidden}
+                    />
+                  );
+                }
 
+                // Diğer durumda varlık kartı göster (AssetDetailCard)
                 return (
-                  <AssetDetailCard
-                    key={asset.name}
-                    asset={asset}
-                    currencySymbol={currencySymbol}
-                    currentPrice={currentPrice}
-                    isBalanceHidden={isBalanceHidden}
-                    onPress={() => {
-                      // Bu varlığın transaction'larından API bilgilerini al
-                      const assetTransactions = transactions.filter(
-                        tx => tx.mainCategory === selectedCategory && tx.assetName === (asset.fullName || asset.name)
-                      );
-                      
-                      // En güncel transaction'dan API bilgilerini al
-                      const latestTx = assetTransactions[0] || {};
-                      
-                      // selectedAssetInfo objesi oluştur (TransactionScreen'in beklediği formatta)
-                      const assetInfo = {
-                        provider: latestTx.provider || null,
-                        id: latestTx.apiId || null,
-                        symbol: asset.symbol || latestTx.symbol || null,
-                        currency: latestTx.apiCurrency || 'TRY',
-                        category: selectedCategory,
-                        fullName: asset.fullName || asset.name
-                      };
-                      
-                      // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
-                      navigation.navigate('İşlem Yap', createPreselectedAsset(
-                        selectedCategory,
-                        asset.fullName || asset.name,
-                        'buy',
-                        assetInfo
-                      ));
-                    }}
-                  />
+                // Bu varlığın anlık fiyatını bul - fullName veya name ile dene
+                  (() => {
+                    // Bu varlığın anlık fiyatını bul - fullName veya name ile dene
+                    const priceData = prices[asset.fullName] || prices[asset.name];
+
+                    // currentPrice zaten getCategoryDetail veya getAssetsForSubCategory'de hesaplanmış!
+                    let currentPrice = asset.currentPrice || null;
+                    console.log(`🎯 AssetDetailCard: ${asset.name}, currentPrice=${currentPrice}, priceData=`, priceData);
+
+                    return (
+                      <AssetDetailCard
+                        key={asset.name}
+                        asset={asset}
+                        currencySymbol={currencySymbol}
+                        currentPrice={currentPrice}
+                        isBalanceHidden={isBalanceHidden}
+                        onPress={() => {
+                          // Bu varlığın transaction'larından API bilgilerini al
+                          const assetTransactions = transactions.filter(
+                            tx => tx.mainCategory === selectedCategory && tx.assetName === (asset.fullName || asset.name)
+                          );
+
+                          // En güncel transaction'dan API bilgilerini al
+                          const latestTx = assetTransactions[0] || {};
+
+                          // selectedAssetInfo objesi oluştur (TransactionScreen'in beklediği formatta)
+                          const assetInfo = {
+                            provider: latestTx.provider || null,
+                            id: latestTx.apiId || null,
+                            symbol: asset.symbol || latestTx.symbol || null,
+                            currency: latestTx.apiCurrency || 'TRY',
+                            category: selectedCategory,
+                            fullName: asset.fullName || asset.name
+                          };
+
+                          // Tab Navigator üzerinden İşlem Yap sekmesine parametrelerle geçiş
+                          navigation.navigate('İşlem Yap', createPreselectedAsset(
+                            selectedCategory,
+                            asset.fullName || asset.name,
+                            'buy',
+                            assetInfo
+                          ));
+                        }}
+                      />
+                    );
+                  })()
                 );
               })
             ) : (
