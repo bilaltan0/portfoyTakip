@@ -22,14 +22,30 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { SettingsIcon, TrashIcon, HelpCircleIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
 import { useSubCategories } from '../context/SubCategoryContext';
+import { useAd } from '../context/AdContext';
 import MenuItem from '../components/MenuItem';
 import Constants from 'expo-constants';
+
+function AdsSwitch() {
+  const { enabled, setEnableAds, initialized } = useAd();
+
+  if (!initialized) {
+    return <Switch value={false} onValueChange={() => {}} disabled />;
+  }
+
+  return (
+    <Switch
+      value={!!enabled}
+      onValueChange={(v) => setEnableAds(!!v)}
+    />
+  );
+}
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
@@ -146,6 +162,17 @@ export default function MoreScreen({ navigation }) {
           ))}
         </View>
 
+        {/* Ads Toggle */}
+        <View style={styles.adsToggleCard}>
+          <View style={styles.adsTextContainer}>
+            <Text style={styles.adsTitle}>Reklamları Göster</Text>
+            <Text style={styles.adsSubtitle}>Kapalı test sırasında reklamları açıp kapatabilirsiniz.</Text>
+          </View>
+          <View style={styles.adsSwitch}>
+            <AdsSwitch />
+          </View>
+        </View>
+
         {/* Spacer - Alt kısmı aşağı iter */}
         <View style={{ flex: 1, minHeight: 100 }} />
 
@@ -181,6 +208,32 @@ const styles = StyleSheet.create({
   },
   menuSection: {
     // MenuItem component'i kendi stilini yönetiyor
+  },
+  adsToggleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  adsTextContainer: {
+    flex: 1,
+  },
+  adsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  adsSubtitle: {
+    fontSize: 13,
+    color: COLORS.mediumGray,
+  },
+  adsSwitch: {
+    marginLeft: 12,
   },
   footer: {
     alignItems: 'center',
