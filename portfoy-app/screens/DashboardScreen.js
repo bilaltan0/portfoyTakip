@@ -41,7 +41,7 @@
  * İleride ayrı ekranlar olacak (Stack Navigator ile).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -76,15 +76,21 @@ import { STORAGE_KEYS } from '../constants/storage.constants';
 
 // Utility fonksiyonları
 import { getQuantityLabel } from '../utils/assetUtils';
+import { normalizeAssetKey } from '../utils/assetKeys';
 import { getCategoryColor, generateColorForAsset } from '../utils/colorUtils';
 import { convertCurrency as convertCurrencyUtil, formatCurrency, getCurrencySymbol } from '../utils/currencyUtils';
 import { createPreselectedAsset } from '../utils/navigationHelpers';
+
+// Label for the pseudo-uncategorized subcategory (human-friendly)
+const UNASSIGNED_ID = '__UNCATEGORIZED__';
+const UNASSIGNED_LABEL = 'Diğer';
 
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
   const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
   const { 
     subCategories, 
+    assetMapping,
     loading: subCategoriesLoading, 
     createSubCategory,
     refreshData: refreshSubCategories,
@@ -106,6 +112,8 @@ export default function DashboardScreen({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   // Alt kategori seçimi (ana kategori seçildiyse burada alt kategori seçimi olabilir)
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+  // Ref to horizontal cards ScrollView so we can auto-scroll (fix clipping on first card)
+  const cardsScrollRef = useRef(null);
 
   // Debug: Verileri temizle
   const handleClearData = () => {
@@ -499,6 +507,45 @@ export default function DashboardScreen({ navigation }) {
       };
     });
 
+  // Ayrıca kategorisiz (atanmamış) varlıkları tek bir pseudo-altkategori olarak ekle
+    try {
+      const allAssetNames = Object.keys(assets);
+      const assignedKeys = new Set();
+      Object.keys(assetMapping || {}).forEach(k => {
+        const mapped = assetMapping[k];
+        if (mapped && subcats.some(s => s.id === mapped)) {
+          assignedKeys.add(normalizeAssetKey(k));
+        }
+      });
+
+      const unassigned = allAssetNames.filter(aName => !assignedKeys.has(normalizeAssetKey(aName)));
+      if (unassigned.length > 0) {
+        let totalUnassignedInTRY = 0;
+        unassigned.forEach((assetName) => {
+          const entry = assets[assetName];
+          if (!entry) return;
+          const priceData = prices[assetName];
+          let currentValueInTRY = entry.totalCostInTRY;
+          if (priceData && priceData.price > 0 && !priceData.error) {
+            const priceCurrency = priceData.currency || 'TRY';
+            const currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+            currentValueInTRY = entry.totalQuantity * currentPriceInTRY;
+          }
+          totalUnassignedInTRY += currentValueInTRY;
+        });
+
+        results.push({
+          id: UNASSIGNED_ID,
+          name: UNASSIGNED_LABEL,
+          value: convertCurrency(totalUnassignedInTRY),
+          rawValue: totalUnassignedInTRY,
+          color: generateColorForAsset(UNASSIGNED_LABEL)
+        });
+      }
+    } catch (e) {
+      console.error('getSubCategoryDistribution - unassigned aggregation failed', e);
+    }
+
     return results;
   };
 
@@ -506,11 +553,71 @@ export default function DashboardScreen({ navigation }) {
    * Verilen alt kategori id'si için içindeki varlıkların detaylarını döner
    */
   const getAssetsForSubCategory = (parentCategory, subCategoryId) => {
+    // Special-case: pseudo-category for unassigned assets
+    const assetsMap = Object.fromEntries(collectCategoryAssets(parentCategory));
+  if (subCategoryId === UNASSIGNED_ID) {
+      const allAssetNames = Object.keys(assetsMap);
+      const subcats = getSubCategoriesByCategory(parentCategory) || [];
+      const assignedKeys = new Set();
+      Object.keys(assetMapping || {}).forEach(k => {
+        const mapped = assetMapping[k];
+        if (mapped && subcats.some(s => s.id === mapped)) assignedKeys.add(normalizeAssetKey(k));
+      });
+
+  const unassignedNames = allAssetNames.filter(aName => !assignedKeys.has(normalizeAssetKey(aName)));
+
+      const assetListUnassigned = unassignedNames.map((assetName, index) => {
+        const data = assetsMap[assetName];
+        if (!data) return null;
+
+        const totalBuyQuantity = data.transactions
+          .filter(tx => tx.type === 'buy')
+          .reduce((sum, tx) => sum + tx.quantity, 0);
+
+        const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 0;
+
+        const priceData = prices[assetName];
+        let currentPriceInTRY = null;
+        let hasLivePrice = false;
+        let currentValueInTRY = data.totalCostInTRY;
+
+        if (priceData && priceData.price > 0 && !priceData.error) {
+          const priceCurrency = priceData.currency || 'USD';
+          currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+          currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+          hasLivePrice = true;
+        }
+
+        return {
+          name: assetName.includes('(') ? assetName.split('(')[0].trim() : assetName,
+          fullName: assetName,
+          symbol: data.symbol || null,
+          value: convertCurrency(currentValueInTRY),
+          rawValue: currentValueInTRY,
+          quantity: data.totalQuantity,
+          avgPrice: convertCurrency(avgCostInTRY),
+          currentPrice: currentPriceInTRY ? convertCurrency(currentPriceInTRY) : null,
+          hasLivePrice,
+          color: generateColorForAsset(assetName, index),
+          quantityLabel: 'Miktar',
+        };
+      }).filter(Boolean);
+
+      const categoryTotal = assetListUnassigned.reduce((sum, it) => sum + it.value, 0);
+      return assetListUnassigned.map((item) => {
+        const exactPercentage = categoryTotal > 0 ? (item.value / categoryTotal) * 100 : 0;
+        return {
+          ...item,
+          percentage: Math.round(exactPercentage),
+          exactPercentage
+        };
+      });
+    }
+
     const subcat = getSubCategoryById(subCategoryId);
     if (!subcat) return [];
 
     // Collect category assets map
-    const assetsMap = Object.fromEntries(collectCategoryAssets(parentCategory));
 
     const assetList = (subcat.assets || []).map((assetName, index) => {
       const data = assetsMap[assetName];
@@ -801,8 +908,13 @@ export default function DashboardScreen({ navigation }) {
     if (selectedSubCategory) {
       // Alt kategori içindeki varlıkları göster
       displayDistribution = getAssetsForSubCategory(selectedCategory, selectedSubCategory);
-      const subcatObj = getSubCategoryById(selectedSubCategory);
-      distributionTitle = subcatObj ? `${subcatObj.name} Varlıkları` : `${selectedCategory} Varlıkları`;
+      // Eğer pseudo-uncategorized seçiliyse, kullanıcının beklediği gibi alt kategori adını göster
+      if (selectedSubCategory === UNASSIGNED_ID) {
+        distributionTitle = `${UNASSIGNED_LABEL} Varlıkları`;
+      } else {
+        const subcatObj = getSubCategoryById(selectedSubCategory);
+        distributionTitle = subcatObj ? `${subcatObj.name} Varlıkları` : `${selectedCategory} Varlıkları`;
+      }
       centerValue = displayDistribution.reduce((sum, item) => sum + item.value, 0);
     } else if (subcatList && subcatList.length > 0) {
       // Alt kategorileri göster (ilk seviye)
@@ -837,6 +949,23 @@ export default function DashboardScreen({ navigation }) {
       percentage: Math.round(exactPercentage)
     };
   });
+
+  // If user selects the pseudo-uncategorized subcategory, ensure the horizontal cards scroll to start
+  useEffect(() => {
+    if (selectedSubCategory === '__UNCATEGORIZED__' && cardsScrollRef && cardsScrollRef.current) {
+      try {
+        cardsScrollRef.current.scrollTo({ x: 0, animated: true });
+      } catch (e) {
+        // Fallback for older RN versions
+        try {
+          const responder = cardsScrollRef.current.getScrollResponder && cardsScrollRef.current.getScrollResponder();
+          responder && responder.scrollTo && responder.scrollTo({ x: 0, animated: true });
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
+  }, [selectedSubCategory]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -950,7 +1079,13 @@ export default function DashboardScreen({ navigation }) {
         </Text>
         
         {/* Quick Look Cards / Asset Detail Cards */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsRow} contentContainerStyle={{ paddingHorizontal: 16 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.cardsRow}
+          ref={cardsScrollRef}
+          contentContainerStyle={{ paddingLeft: (selectedSubCategory === '__UNCATEGORIZED__') ? 28 : 16, paddingRight: 16, alignItems: 'flex-start' }}
+        >
           {selectedCategory ? (
             // Kategori seçiliyse: 3 durum olabilir
             // 1) selectedSubCategory varsa -> displayDistribution = varlıklar (AssetDetailCard)
@@ -1066,7 +1201,7 @@ export default function DashboardScreen({ navigation }) {
               </View>
             )
           )}
-        </ScrollView>
+  </ScrollView>
       </ScrollView>
 
       {/* Para Birimi Seçici Modal */}

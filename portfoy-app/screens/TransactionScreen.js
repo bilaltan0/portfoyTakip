@@ -204,12 +204,9 @@ export default function TransactionScreen({ route, navigation }) {
           if (assigned) {
             setSelectedSubCategory(assigned);
             console.log('🔎 preselect: asset auto-assigned to subcategory ->', { id: assigned.id, name: assigned.name });
-            // Küçük bir toast ile kullanıcıyı bilgilendir (görsel geri bildirim)
-            try {
-              showToast(`Varlık otomatik olarak alt kategoriye atandı: ${assigned.name}`, 'success');
-            } catch (tErr) {
-              // ignore toast errors
-            }
+            // Note: previously we showed a toast here informing the user the asset
+            // was auto-assigned to a subcategory. Per UX request, remove that
+            // notification but keep the automatic selection behavior.
           }
         } catch (err) {
           console.warn('❌ preselect: error while checking asset->subcategory mapping', err);
