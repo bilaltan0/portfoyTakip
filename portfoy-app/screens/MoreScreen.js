@@ -30,6 +30,7 @@ import { usePortfolio } from '../context/PortfolioContext';
 import { useSubCategories } from '../context/SubCategoryContext';
 import { useAd } from '../context/AdContext';
 import MenuItem from '../components/MenuItem';
+import AdBanner from '../components/AdBanner';
 import Constants from 'expo-constants';
 
 function AdsSwitch() {
@@ -172,6 +173,9 @@ export default function MoreScreen({ navigation }) {
             <AdsSwitch />
           </View>
         </View>
+
+  {/* Placeholder banner in More screen (below toggle) */}
+  <AdBanner style={{ marginTop: 8 }} />
 
         {/* Spacer - Alt kısmı aşağı iter */}
         <View style={{ flex: 1, minHeight: 100 }} />
