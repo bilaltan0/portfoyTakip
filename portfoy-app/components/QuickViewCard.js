@@ -21,6 +21,10 @@ export default function QuickViewCard({
   isBalanceHidden = false
 }) {
   const isPositive = change >= 0;
+  // Format change to 2 decimal places for display
+  const formattedChange = (typeof change === 'number' && isFinite(change))
+    ? change.toFixed(2)
+    : (typeof change === 'string' ? change : '0.00');
   
   return (
     <TouchableOpacity 
@@ -48,7 +52,7 @@ export default function QuickViewCard({
           styles.change, 
           { color: isPositive ? COLORS.profit : COLORS.loss }
         ]}>
-          {change}%
+          {formattedChange}%
         </Text>
       </View>
     </TouchableOpacity>
