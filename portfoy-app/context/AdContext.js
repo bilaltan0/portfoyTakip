@@ -21,6 +21,8 @@ export const AdProvider = ({ children }) => {
         } else if (mounted) {
           setEnabled(buildDefault);
         }
+
+        // No-op: we no longer persist any rewarded-unlock flag here.
       } catch (e) {
         if (mounted) setEnabled(buildDefault);
       } finally {
@@ -34,6 +36,7 @@ export const AdProvider = ({ children }) => {
     setEnabled(value);
     try {
       await AsyncStorage.setItem(ADS_OVERRIDE_KEY, value ? 'true' : 'false');
+      // No-op: do not persist or clear any rewarded-unlock flag here.
     } catch (e) {
       // ignore write failures
     }

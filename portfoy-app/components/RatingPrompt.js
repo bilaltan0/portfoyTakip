@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
@@ -66,18 +66,41 @@ export default function RatingPrompt() {
       [
         { text: 'Sonra Hatırlat', style: 'cancel' },
         { text: 'Hayır', style: 'destructive', onPress: async () => { await AsyncStorage.setItem(RATING_OPT_OUT_KEY, 'true'); } },
-        { text: 'Evet', onPress: () => { openStore(); AsyncStorage.setItem(RATING_SHOWN_KEY, 'true'); } },
+        { text: 'Evet', onPress: async () => { await tryInAppReviewOrStore(); await AsyncStorage.setItem(RATING_SHOWN_KEY, 'true'); } },
       ],
       { cancelable: true }
     );
   };
 
-  const openStore = () => {
+  const tryInAppReviewOrStore = async () => {
+    // Try to use native in-app review module if available (recommended). If not,
+    // fall back to opening the Play Store / App Store link.
+    try {
+      // Dynamically require so the app still runs if the native module isn't installed
+      // Package: react-native-in-app-review (https://github.com/iamandrewluca/react-native-in-app-review)
+      const InAppReview = require('react-native-in-app-review');
+
+      if (InAppReview && InAppReview.isAvailable && InAppReview.isAvailable()) {
+        // Request in-app review (may or may not show UI depending on platform heuristics)
+        await InAppReview.RequestInAppReview();
+        return;
+      }
+    } catch (e) {
+      // module not available or failed; fall through to store link
+      console.debug('In-app review module not available, opening store instead', e);
+    }
+
+    // Fallback: open store page
     const pkg = Constants.expoConfig?.android?.package || Constants.manifest?.android?.package;
     if (!pkg) return;
-    const androidUrl = `market://details?id=${pkg}`;
-    const webUrl = `https://play.google.com/store/apps/details?id=${pkg}`;
-    Linking.openURL(androidUrl).catch(() => Linking.openURL(webUrl));
+    if (Platform.OS === 'android') {
+      const androidUrl = `market://details?id=${pkg}`;
+      const webUrl = `https://play.google.com/store/apps/details?id=${pkg}`;
+      Linking.openURL(androidUrl).catch(() => Linking.openURL(webUrl));
+    } else {
+      const iosUrl = `https://apps.apple.com/app/id${pkg}`; // pkg for iOS might differ
+      Linking.openURL(iosUrl).catch(() => {});
+    }
   };
 
   return null;
