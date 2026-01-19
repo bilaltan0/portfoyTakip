@@ -60,6 +60,7 @@ import DoughnutChart from '../components/DoughnutChart';
 import ChartLegend from '../components/ChartLegend';
 import ProfitLossCard from '../components/ProfitLossCard';
 import PortfolioValueHeader from '../components/PortfolioValueHeader';
+import AdBanner from '../components/AdBanner';
 
 // Services
 import { clearPriceCache } from '../services/priceService';
@@ -1202,9 +1203,12 @@ export default function DashboardScreen({ navigation }) {
             )
           )}
   </ScrollView>
-      </ScrollView>
+            {/* Reklam Banner (placeholder) */}
+            <AdBanner style={{ marginHorizontal: 16 }} />
 
-      {/* Para Birimi Seçici Modal */}
+          </ScrollView>
+
+          {/* Para Birimi Seçici Modal */}
       <Modal
         visible={showCurrencyModal}
         transparent={true}

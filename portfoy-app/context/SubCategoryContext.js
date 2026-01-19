@@ -270,24 +270,6 @@ export const SubCategoryProvider = ({ children }) => {
   };
 
   /**
-   * TÜM alt kategorileri ve eşleştirmeleri temizle
-   */
-  const clearAllSubCategories = async () => {
-    try {
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.SUBCATEGORIES,
-        STORAGE_KEYS.ASSET_MAPPING
-      ]);
-      setSubCategories([]);
-      setAssetMapping({});
-      console.log('✅ Tüm alt kategoriler temizlendi');
-    } catch (error) {
-      console.error('❌ Alt kategoriler temizlenemedi:', error);
-      throw error;
-    }
-  };
-
-  /**
    * Parent kategorideki toplam hedef yüzdeyi hesapla
    */
   const getTotalTargetPercentage = (parentCategory) => {
@@ -325,8 +307,7 @@ export const SubCategoryProvider = ({ children }) => {
     removeAssetFromCategory,
     
     // Utility
-    refreshData,
-    clearAllSubCategories
+    refreshData
   };
 
   return (

@@ -11,6 +11,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 import TransactionItem from '../components/TransactionItem';
+import AdBanner from '../components/AdBanner';
 
 export default function TransactionHistoryScreen({ navigation }) {
   const { activePortfolio, deleteTransaction, updateTransaction } = usePortfolio();
@@ -93,6 +94,8 @@ export default function TransactionHistoryScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Reklam banner (placeholder) */}
+        <AdBanner style={{ marginBottom: 12 }} />
         {transactions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Henüz işlem bulunmuyor</Text>
