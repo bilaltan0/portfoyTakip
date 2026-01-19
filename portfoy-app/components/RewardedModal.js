@@ -13,33 +13,82 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
   }, [visible]);
 
   const handleWatch = async () => {
-    // Simulate ad watching flow (placeholder). Replace with real SDK later.
     setLoading(true);
-    console.log('🎬 Rewarded: simulated ad started');
+    console.log('🎬 Rewarded: attempt to show real rewarded ad (or fallback)');
 
-    setTimeout(() => {
-      // After simulated ad completion, log event and notify caller.
-      try {
-        console.log('✅ Rewarded: simulated ad completed');
-        console.log('event: rewarded_completed');
+    try {
+      // Try to use react-native-google-mobile-ads if it's installed.
+      // eslint-disable-next-line global-require
+      const { RewardedAd, RewardedAdEventType, TestIds } = require('react-native-google-mobile-ads');
+      const adUnitId = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
+      const rewarded = RewardedAd.createForAdRequest(adUnitId, { requestNonPersonalizedAdsOnly: true });
 
-        // Show success toast (Android) or alert (iOS)
-        const successMessage = 'Teşekkürler — şimdi yeni portföyünü oluşturabilirsin.';
-        if (Platform.OS === 'android' && ToastAndroid) {
-          ToastAndroid.show(successMessage, ToastAndroid.SHORT);
-        } else {
-          Alert.alert('', successMessage);
+      const unsub = rewarded.onAdEvent((type, error, reward) => {
+        if (type === RewardedAdEventType.LOADED) {
+          console.log('Rewarded loaded');
         }
+        if (type === RewardedAdEventType.EARNED_REWARD) {
+          console.log('event: rewarded_completed', reward);
+          const successMessage = 'Teşekkürler — şimdi yeni portföyünü oluşturabilirsin.';
+          if (Platform.OS === 'android' && ToastAndroid) {
+            ToastAndroid.show(successMessage, ToastAndroid.SHORT);
+          } else {
+            Alert.alert('', successMessage);
+          }
+          onUnlocked && onUnlocked();
+        }
+        if (type === RewardedAdEventType.CLOSED) {
+          // cleanup
+          setLoading(false);
+          onClose && onClose();
+          rewarded.load();
+        }
+        if (type === RewardedAdEventType.ERROR) {
+          console.warn('Rewarded ad error', error);
+        }
+      });
 
-        // Notify caller to proceed with the single create action.
-        onUnlocked && onUnlocked();
-      } catch (e) {
-        console.error('❌ Rewarded: onUnlocked handler failed', e);
-      } finally {
-        setLoading(false);
-        onClose && onClose();
-      }
-    }, 3000); // 3s simulate
+      // load and show when ready
+      rewarded.load();
+      // show when loaded - listener will handle the rest
+      setTimeout(() => {
+        try {
+          rewarded.show();
+        } catch (e) {
+          console.warn('Could not show rewarded (fallback to simulate)', e);
+        }
+      }, 600);
+
+      // unsubscribe after modal closes
+      const cleanup = () => unsub && unsub();
+      // best-effort cleanup when component unmounts
+      return cleanup;
+    } catch (err) {
+      // SDK not available or failed — fallback to simulated 3s flow
+      console.debug('Rewarded SDK not available, falling back to simulated ad', err);
+      console.log('🎬 Rewarded: simulated ad started');
+
+      setTimeout(() => {
+        try {
+          console.log('✅ Rewarded: simulated ad completed');
+          console.log('event: rewarded_completed');
+
+          const successMessage = 'Teşekkürler — şimdi yeni portföyünü oluşturabilirsin.';
+          if (Platform.OS === 'android' && ToastAndroid) {
+            ToastAndroid.show(successMessage, ToastAndroid.SHORT);
+          } else {
+            Alert.alert('', successMessage);
+          }
+
+          onUnlocked && onUnlocked();
+        } catch (e) {
+          console.error('❌ Rewarded: onUnlocked handler failed', e);
+        } finally {
+          setLoading(false);
+          onClose && onClose();
+        }
+      }, 3000);
+    }
   };
 
   return (

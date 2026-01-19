@@ -55,7 +55,13 @@ function AdsSwitch() {
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
   // subcategory clearing moved to dedicated editor; no handler needed here
-  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const appVersion = Constants.expoConfig?.version || Constants.manifest?.version || '1.0.0';
+  const buildNumber =
+    Constants.expoConfig?.android?.versionCode ||
+    Constants.manifest?.android?.versionCode ||
+    Constants.expoConfig?.ios?.buildNumber ||
+    Constants.manifest?.ios?.buildNumber ||
+    null;
 
   const handleClearData = () => {
     Alert.alert(
@@ -184,7 +190,9 @@ export default function MoreScreen({ navigation }) {
 
         {/* App Info */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>PortföyMate • Versiyon {appVersion}</Text>
+          <Text style={styles.footerText}>
+            PortföyMate • Versiyon {appVersion}{buildNumber ? ` (build ${buildNumber})` : ''}
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
