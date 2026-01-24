@@ -67,6 +67,10 @@ export default function TransactionScreen({ route, navigation }) {
   const [showSubCategoryMenu, setShowSubCategoryMenu] = useState(false);
   const [activeSubCategoryForMenu, setActiveSubCategoryForMenu] = useState(null);
   const [menuConfirmDelete, setMenuConfirmDelete] = useState(false);
+  // Layout states to position the create button under the last category
+  const [categoryContainerLayout, setCategoryContainerLayout] = useState(null);
+  const [lastCategoryLayout, setLastCategoryLayout] = useState(null);
+  const [createButtonLayout, setCreateButtonLayout] = useState(null);
   // Edit mode kontrolü
   const editingTransaction = route?.params?.editingTransaction;
   const isEditMode = !!editingTransaction;
@@ -785,65 +789,90 @@ export default function TransactionScreen({ route, navigation }) {
           {/* Ana Kategori */}
           <View style={styles.section}>
             <Text style={styles.label}>📂 Kategori Seçin</Text>
-            <View style={styles.categoryButtons}>
-              {mainCategories.map((cat) => (
+            <View
+              style={[styles.categoryButtons, { position: 'relative' }]}
+              onLayout={(e) => setCategoryContainerLayout(e.nativeEvent.layout)}
+            >
+              {mainCategories.map((cat, idx) => (
                 <CategoryButton
                   key={cat}
                   label={cat}
                   isActive={mainCategory === cat}
                   onPress={() => setMainCategory(cat)}
+                  onLayout={idx === mainCategories.length - 1 ? (e) => setLastCategoryLayout(e.nativeEvent.layout) : undefined}
                 />
               ))}
+
+              {/* Absolute positioned + Oluştur removed from here — placed next to label for correct vertical alignment */}
             </View>
           </View>
 
           {/* Alt Kategori Seçimi - Kategori seçildiyse göster */}
           {mainCategory && (
             <View style={styles.section}>
-              <Text style={styles.label}>🏷️ Alt Kategori (Opsiyonel)</Text>
-              <View style={styles.subCategoryContainer}>
-                {[
-                  ...subCategories
-                    .filter(sc => sc.parentCategory === mainCategory && sc.id)
-                    .map((subCat) => (
-                      <TouchableOpacity
-                        key={subCat.id}
-                        style={[
-                          styles.subCategoryChip,
-                          selectedSubCategory?.id === subCat.id && styles.subCategoryChipActive,
-                          { borderColor: subCat.color }
-                        ]}
-                        onPress={() => setSelectedSubCategory(subCat)}
-                        onLongPress={() => handleOpenSubCategoryMenu(subCat)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[
-                          styles.subCategoryChipText,
-                          selectedSubCategory?.id === subCat.id && styles.subCategoryChipTextActive
-                        ]}>
-                          {subCat.icon} {subCat.name}
-                        </Text>
-                      </TouchableOpacity>
-                    )),
-
-                  <TouchableOpacity
-                    key="create-new-subcategory"
-                    style={[styles.subCategoryChip, styles.subCategoryChipNew]}
+              <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
+                <Text style={styles.label}>🏷️ Alt Kategori (Opsiyonel)</Text>
+                {lastCategoryLayout ? (
+                  <ActionButton
+                    label={'+ Oluştur'}
                     onPress={() => {
-                      // Yeni oluşturma moduysa düzenleme flag'lerini sıfırla
                       setIsEditingSubCategory(false);
                       setEditingSubCategoryId(null);
                       setShowSubCategoryModal(true);
                     }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.subCategoryChipTextNew}>
-                      + Yeni Oluştur
-                    </Text>
-                  </TouchableOpacity>
-                ]}
+                    variant="text"
+                    size="small"
+                    style={[
+                      styles.createSubCategoryButton,
+                      styles.createSubCategoryButtonText,
+                      {
+                        position: 'absolute',
+                        left: lastCategoryLayout.x + (lastCategoryLayout.width / 2) - ((createButtonLayout?.width || 80) / 2),
+                        top: 0,
+                      }
+                    ]}
+                    onLayout={(e) => setCreateButtonLayout(e.nativeEvent.layout)}
+                  />
+                ) : (
+                  <ActionButton
+                    label={'+ Oluştur'}
+                    onPress={() => {
+                      setIsEditingSubCategory(false);
+                      setEditingSubCategoryId(null);
+                      setShowSubCategoryModal(true);
+                    }}
+                    variant="text"
+                    size="small"
+                    style={[styles.createSubCategoryButton, styles.createSubCategoryButtonText, { marginLeft: 10 }]}
+                    onLayout={(e) => setCreateButtonLayout(e.nativeEvent.layout)}
+                  />
+                )}
               </View>
-              {/* selection is cleared by tapping another chip; explicit clear button removed per UX request */}
+
+              <View style={styles.subCategoryContainer}>
+                {subCategories
+                  .filter(sc => sc.parentCategory === mainCategory && sc.id)
+                  .map((subCat) => (
+                    <TouchableOpacity
+                      key={subCat.id}
+                      style={[
+                        styles.subCategoryChip,
+                        selectedSubCategory?.id === subCat.id && styles.subCategoryChipActive,
+                        { borderColor: subCat.color }
+                      ]}
+                      onPress={() => setSelectedSubCategory(subCat)}
+                      onLongPress={() => handleOpenSubCategoryMenu(subCat)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.subCategoryChipText,
+                        selectedSubCategory?.id === subCat.id && styles.subCategoryChipTextActive
+                      ]}>
+                        {subCat.icon} {subCat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
             </View>
           )}
 
@@ -860,28 +889,17 @@ export default function TransactionScreen({ route, navigation }) {
             ) : (
               <>
                 {/* Arama Input'u */}
-                <View style={styles.inputContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <TextInput
-                    style={[styles.input, assetName.trim() && styles.inputWithClear]}
+                    style={[styles.input, { flex: 1 }, assetName.trim() && styles.inputWithClear]}
                     placeholder="Varlık ara... (Altın, BTC, BIST, Dolar)"
                     placeholderTextColor={COLORS.mediumGray}
                     value={assetName}
                     onChangeText={handleAssetSearch}
                     onFocus={() => {
-                      // Eğer seçili varlık varsa dropdown gösterme
-                      if (!selectedAssetInfo) {
-                        setShowDropdown(true);
-                      }
+                      // Eğer seçili varlık yoksa dropdown göster
+                      if (!selectedAssetInfo) setShowDropdown(true);
                     }}
-                    onBlur={() => {
-                      // Dropdown'daki item'a tıklamak için delay
-                      setTimeout(() => {
-                        if (!selectedAssetInfo) {
-                          setShowDropdown(false);
-                        }
-                      }, 300);
-                    }}
-                    autoCorrect={false}
                     returnKeyType="search"
                     enablesReturnKeyAutomatically={false}
                   />
@@ -1126,19 +1144,51 @@ export default function TransactionScreen({ route, navigation }) {
                 onPress={() => handleSubmit(editingTransaction.type)}
               />
             ) : (
-              // Normal mode: Alış ve Satış butonları
-              <>
-                <ActionButton
-                  label="📈 Alış Yap"
-                  variant="success"
-                  onPress={handleBuy}
-                />
-                <ActionButton
-                  label="📉 Satış Yap"
-                  variant="danger"
-                  onPress={handleSell}
-                />
-              </>
+              // Normal mode: Alış ve Satış butonları (modernized)
+              (() => {
+                  const quantityNum = parseFloat(quantity);
+                  const priceNum = parseFloat(unitPrice);
+                  const total = (!isNaN(quantityNum) && !isNaN(priceNum)) ? (quantityNum * priceNum) : null;
+                  const totalLabel = total ? `${total.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}` : null;
+
+                  const quickValid = !!mainCategory && !!assetName.trim() && quantityNum > 0 && priceNum > 0;
+
+                  // Calculate holdings for sell validation
+                  let totalOwned = 0;
+                  const transactions = activePortfolio?.transactions || [];
+                  const assetKey = `${mainCategory}_${assetName.trim()}`;
+                  transactions.forEach(transaction => {
+                    const txAssetKey = `${transaction.mainCategory}_${transaction.assetName}`;
+                    if (txAssetKey === assetKey) {
+                      if (transaction.type === 'buy') totalOwned += transaction.quantity;
+                      else if (transaction.type === 'sell') totalOwned -= transaction.quantity;
+                    }
+                  });
+
+                  const sellQuantity = parseFloat(quantity) || 0;
+                  const sellDisabled = !quickValid || sellQuantity > totalOwned;
+
+                  return (
+                    <View style={[styles.actionButtonsGroup, styles.actionButtonsGroupHeight]}>
+                      <ActionButton
+                        label="📈 Alış Yap"
+                        variant="success"
+                        onPress={handleBuy}
+                        disabled={!quickValid}
+                        subtitle={totalLabel}
+                        style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
+                      />
+                      <ActionButton
+                        label="📉 Satış Yap"
+                        variant="danger"
+                        onPress={handleSell}
+                        disabled={sellDisabled}
+                        subtitle={totalLabel}
+                        style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
+                      />
+                    </View>
+                  );
+                })()
             )}
           </View>
         </View>
@@ -1437,11 +1487,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: COLORS.white,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 30,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    paddingBottom: 0,
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -1464,7 +1514,18 @@ const styles = StyleSheet.create({
   },
   actionButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+  },
+  actionButtonsGroup: {
+    flexDirection: 'row',
+    borderRadius: 0,
+    overflow: 'hidden',
+    width: '100%'
+  },
+  actionButtonsGroupHeight: {
+    height: 52,
   },
   categoryButtons: {
     flexDirection: 'row',
@@ -1836,6 +1897,25 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
     borderWidth: 1,
     borderColor: COLORS.lightGray,
+  },
+  createSubCategoryLink: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  createSubCategoryLinkText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  createSubCategoryButton: {
+    marginLeft: 'auto',
+    borderRadius: 999,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  createSubCategoryButtonText: {
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   emojiGrid: {
     flexDirection: 'row',
