@@ -30,6 +30,7 @@ import CategoryButton from '../components/CategoryButton';
 import AssetChip from '../components/AssetChip';
 import CurrencyButton from '../components/CurrencyButton';
 import ActionButton from '../components/ActionButton';
+import AdBanner from '../components/AdBanner';
 import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
 import { fetchAssetPrice } from '../services/priceService';
 
@@ -1108,6 +1109,8 @@ export default function TransactionScreen({ route, navigation }) {
           )}
 
           {/* Sabit butonların arkasında kalmaması için boşluk */}
+          {/* Banner reklam alanı */}
+          <AdBanner style={{ marginVertical: 8 }} />
           <View style={{ height: 120 }} />
         </ScrollView>
         </TouchableWithoutFeedback>

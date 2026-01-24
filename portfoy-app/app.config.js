@@ -7,6 +7,7 @@ const appJson = require('./app.json');
  */
 module.exports = ({ config } = {}) => {
   const enableAdsEnv = process.env.ENABLE_ADS === 'true';
+  const enableTestAdsEnv = process.env.USE_TEST_ADS === 'true';
 
   return {
     ...appJson,
@@ -15,6 +16,7 @@ module.exports = ({ config } = {}) => {
       extra: {
         ...(appJson.expo.extra || {}),
         enableAds: enableAdsEnv,
+        enableTestAds: enableTestAdsEnv,
       },
     },
   };

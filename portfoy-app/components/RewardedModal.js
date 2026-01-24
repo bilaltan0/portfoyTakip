@@ -29,7 +29,8 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
         // eslint-disable-next-line global-require
         const { RewardedAd, RewardedAdEventType, TestIds } = require('react-native-google-mobile-ads');
 
-        const adUnitId = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
+    const useTestAds = __DEV__ || !!Constants.expoConfig?.extra?.enableTestAds;
+    const adUnitId = useTestAds ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
         const rewarded = RewardedAd.createForAdRequest(adUnitId, { requestNonPersonalizedAdsOnly: true });
 
         const unsub = rewarded.onAdEvent((type, error, reward) => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, NativeModules, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { useAd } from '../context/AdContext';
 
 /**
@@ -22,7 +23,8 @@ export default function AdBanner({ style }) {
         // eslint-disable-next-line global-require
         const { BannerAd, BannerAdSize, TestIds } = require('react-native-google-mobile-ads');
 
-        const unitId = __DEV__ ? TestIds.BANNER : 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB';
+      const useTestAds = __DEV__ || !!Constants.expoConfig?.extra?.enableTestAds;
+      const unitId = useTestAds ? TestIds.BANNER : 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB';
 
         return (
           <View style={[styles.container, style]}>
