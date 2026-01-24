@@ -25,19 +25,21 @@ export default function AdBanner({ style }) {
         const { BannerAd, BannerAdSize, TestIds } = require('react-native-google-mobile-ads');
 
     const useTestAds = __DEV__ || !!Constants.expoConfig?.extra?.enableTestAds;
-        const unitId = useTestAds ? TestIds.BANNER : 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB';
+          const unitId = useTestAds ? TestIds.BANNER : 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB';
 
-        return (
-          <View style={[styles.container, style]}>
-            <BannerAd
-              unitId={unitId}
-              size={BannerAdSize.FULL_BANNER}
-              requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-              onAdLoaded={() => console.log('Banner loaded')}
-              onAdFailedToLoad={(err) => console.warn('Banner failed to load', err)}
-            />
-          </View>
-        );
+            // Use an adaptive anchored banner so the height adjusts to the
+            // device width and prevents layout shifts when the ad loads.
+            return (
+              <View style={[styles.container, style]}>
+                <BannerAd
+                  unitId={unitId}
+                  size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                  requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                  onAdLoaded={() => console.log('Banner loaded')}
+                  onAdFailedToLoad={(err) => console.warn('Banner failed to load', err)}
+                />
+              </View>
+            );
       } catch (e) {
         // If anything goes wrong after we determined nativePresent try/catch
         // will handle it and we'll fall back to placeholder.
@@ -55,14 +57,15 @@ export default function AdBanner({ style }) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: 60,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 8,
+    overflow: 'hidden',
   },
   fallback: {
     width: '100%',
-    height: 60,
+    minHeight: 50,
     backgroundColor: '#FFF7ED',
     borderRadius: 8,
     borderWidth: 1,
