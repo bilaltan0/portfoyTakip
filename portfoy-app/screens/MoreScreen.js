@@ -52,6 +52,21 @@ function AdsSwitch() {
   );
 }
 
+function TestAdsSwitch() {
+  const { enableTestAds, setEnableTestAds, initialized } = useAd();
+
+  if (!initialized) {
+    return <Switch value={false} onValueChange={() => {}} disabled />;
+  }
+
+  return (
+    <Switch
+      value={!!enableTestAds}
+      onValueChange={(v) => setEnableTestAds(!!v)}
+    />
+  );
+}
+
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
   // subcategory clearing moved to dedicated editor; no handler needed here
@@ -177,6 +192,17 @@ export default function MoreScreen({ navigation }) {
           </View>
           <View style={styles.adsSwitch}>
             <AdsSwitch />
+          </View>
+        </View>
+
+        {/* Test Ads Toggle (QA) */}
+        <View style={styles.adsToggleCard}>
+          <View style={styles.adsTextContainer}>
+            <Text style={styles.adsTitle}>Test Reklamları Göster</Text>
+            <Text style={styles.adsSubtitle}>Cihazda test reklamları göstermek için açın (QA için).</Text>
+          </View>
+          <View style={styles.adsSwitch}>
+            <TestAdsSwitch />
           </View>
         </View>
 

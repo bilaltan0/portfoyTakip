@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ToastAndroid, Alert, NativeModules } from 'react-native';
 import { COLORS } from '../constants/theme';
+import Constants from 'expo-constants';
+import { useAd } from '../context/AdContext';
 
 export default function RewardedModal({ visible, onClose, onUnlocked }) {
   const [loading, setLoading] = useState(false);
@@ -23,13 +25,15 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
       NativeModules.RNGoogleMobileAdsModule || NativeModules.RNGoogleMobileAds
     );
 
-    if (nativePresent) {
+  const { enableTestAds } = useAd();
+
+  if (nativePresent) {
       try {
         // Try to use react-native-google-mobile-ads if it's installed.
         // eslint-disable-next-line global-require
         const { RewardedAd, RewardedAdEventType, TestIds } = require('react-native-google-mobile-ads');
-
-        const adUnitId = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
+    const useTestAds = __DEV__ || !!enableTestAds || !!Constants.expoConfig?.extra?.enableTestAds;
+    const adUnitId = useTestAds ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
         const rewarded = RewardedAd.createForAdRequest(adUnitId, { requestNonPersonalizedAdsOnly: true });
 
         const unsub = rewarded.onAdEvent((type, error, reward) => {

@@ -60,6 +60,7 @@ import DoughnutChart from '../components/DoughnutChart';
 import ChartLegend from '../components/ChartLegend';
 import ProfitLossCard from '../components/ProfitLossCard';
 import PortfolioValueHeader from '../components/PortfolioValueHeader';
+import AdBanner from '../components/AdBanner';
 
 // Services
 import { clearPriceCache } from '../services/priceService';
@@ -1069,6 +1070,9 @@ export default function DashboardScreen({ navigation }) {
           isBalanceHidden={isBalanceHidden}
           onToggleBalance={() => setIsBalanceHidden(!isBalanceHidden)}
         />
+
+        {/* Banner Reklam - dashboard'ta görünür */}
+        <AdBanner style={{ marginTop: 12, marginBottom: 8 }} />
 
         {/* Loading Indicator */}
         {pricesLoading && (
