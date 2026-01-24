@@ -8,7 +8,7 @@ import { useAd } from '../context/AdContext';
  * otherwise falls back to a harmless placeholder used during development.
  */
 export default function AdBanner({ style }) {
-  const { enabled, enableTestAds } = useAd();
+  const { enabled } = useAd();
   if (!enabled) return null;
 
     // If the native module isn't present (e.g. Expo Go) avoid requiring the
@@ -24,7 +24,7 @@ export default function AdBanner({ style }) {
         // eslint-disable-next-line global-require
         const { BannerAd, BannerAdSize, TestIds } = require('react-native-google-mobile-ads');
 
-        const useTestAds = __DEV__ || !!enableTestAds || !!Constants.expoConfig?.extra?.enableTestAds;
+    const useTestAds = __DEV__ || !!Constants.expoConfig?.extra?.enableTestAds;
         const unitId = useTestAds ? TestIds.BANNER : 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB';
 
         return (

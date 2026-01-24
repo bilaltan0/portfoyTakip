@@ -17,21 +17,16 @@ export const AdProvider = ({ children }) => {
   const buildDefault = typeof expoVal === 'boolean' ? expoVal : (Constants.appOwnership === 'standalone');
   const [enabled, setEnabled] = useState(buildDefault);
   const [initialized, setInitialized] = useState(false);
-  const [enableTestAds, setEnableTestAdsState] = useState(!!Constants.expoConfig?.extra?.enableTestAds);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const val = await AsyncStorage.getItem(ADS_OVERRIDE_KEY);
-        const testVal = await AsyncStorage.getItem('@enable_test_ads_override');
         if (mounted && val !== null) {
           setEnabled(val === 'true');
         } else if (mounted) {
           setEnabled(buildDefault);
-        }
-        if (mounted && testVal !== null) {
-          setEnableTestAdsState(testVal === 'true');
         }
 
         // Initialize Mobile Ads SDK when ads are enabled and native module
@@ -43,10 +38,8 @@ export const AdProvider = ({ children }) => {
             const MobileAds = require('react-native-google-mobile-ads').default;
             if (MobileAds) {
               MobileAds().initialize();
-              // Use the in-app test-ads flag if present, otherwise fall back to
-              // expo config extra flag. This allows QA to toggle test ads from
-              // the More screen without requiring a rebuild.
-              const useTest = (testVal !== null) ? (testVal === 'true') : !!Constants.expoConfig?.extra?.enableTestAds;
+              // Use expo config extra flag or default to __DEV__ for test ads.
+              const useTest = !!Constants.expoConfig?.extra?.enableTestAds;
               if (useTest && Platform.OS === 'android') {
                 try {
                   MobileAds().setRequestConfiguration({ testDeviceIdentifiers: ['EMULATOR'] });
@@ -82,17 +75,9 @@ export const AdProvider = ({ children }) => {
     }
   };
 
-  const setEnableTestAds = async (value) => {
-    setEnableTestAdsState(value);
-    try {
-      await AsyncStorage.setItem('@enable_test_ads_override', value ? 'true' : 'false');
-    } catch (e) {
-      // ignore
-    }
-  };
 
   return (
-    <AdContext.Provider value={{ enabled, setEnableAds, initialized, buildDefault, enableTestAds, setEnableTestAds }}>
+    <AdContext.Provider value={{ enabled, setEnableAds, initialized, buildDefault }}>
       {children}
     </AdContext.Provider>
   );

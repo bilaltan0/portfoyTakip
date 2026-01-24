@@ -52,20 +52,7 @@ function AdsSwitch() {
   );
 }
 
-function TestAdsSwitch() {
-  const { enableTestAds, setEnableTestAds, initialized } = useAd();
-
-  if (!initialized) {
-    return <Switch value={false} onValueChange={() => {}} disabled />;
-  }
-
-  return (
-    <Switch
-      value={!!enableTestAds}
-      onValueChange={(v) => setEnableTestAds(!!v)}
-    />
-  );
-}
+// TestAdsSwitch removed: consolidated into single 'Reklamları Göster' switch
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
@@ -195,16 +182,7 @@ export default function MoreScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Test Ads Toggle (QA) */}
-        <View style={styles.adsToggleCard}>
-          <View style={styles.adsTextContainer}>
-            <Text style={styles.adsTitle}>Test Reklamları Göster</Text>
-            <Text style={styles.adsSubtitle}>Cihazda test reklamları göstermek için açın (QA için).</Text>
-          </View>
-          <View style={styles.adsSwitch}>
-            <TestAdsSwitch />
-          </View>
-        </View>
+        {/* Test Ads toggle removed; use single 'Reklamları Göster' switch */}
 
   {/* Placeholder banner in More screen (below toggle) */}
   <AdBanner style={{ marginTop: 8 }} />
