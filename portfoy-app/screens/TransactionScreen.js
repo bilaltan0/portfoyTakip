@@ -1108,9 +1108,9 @@ export default function TransactionScreen({ route, navigation }) {
             </View>
           )}
 
+          {/* Move banner up so it's visible and not pushed off-screen */}
+          <AdBanner style={{ marginTop: 8, marginHorizontal: 16 }} />
           {/* Sabit butonların arkasında kalmaması için boşluk */}
-          {/* Banner reklam alanı */}
-          <AdBanner style={{ marginVertical: 8 }} />
           <View style={{ height: 120 }} />
         </ScrollView>
         </TouchableWithoutFeedback>
