@@ -2,7 +2,7 @@
  * TransactionScreen.js - İşlem Yap Ekranı
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -17,32 +17,63 @@ import {
   ActivityIndicator,
   TouchableWithoutFeedback,
   Keyboard,
-  Animated
+  Animated,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
+import { useSubCategories } from '../context/SubCategoryContext';
 import CategoryButton from '../components/CategoryButton';
 import AssetChip from '../components/AssetChip';
 import CurrencyButton from '../components/CurrencyButton';
 import ActionButton from '../components/ActionButton';
+import AdBanner from '../components/AdBanner';
 import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
 import { fetchAssetPrice } from '../services/priceService';
 
 // Ekran boyutunu al - Responsive tasarım için
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function TransactionScreen({ route, navigation }) {
-  const { addTransaction, updateTransaction, categories, activePortfolio } = usePortfolio();
+// Modal için sabitler
+const COMMON_EMOJIS = ['📁', '🔷', '🏦', '💵', '💻', '✈️', '🏆', '🎯', '📊', '🔥', '⭐', '💎', '🏠', '🚗', '💰', '📈'];
+const PRESET_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#EC4899', '#6366F1'];
 
+export default function TransactionScreen({ route, navigation }) {
+  const { 
+    addTransaction, 
+    updateTransaction, 
+    categories, 
+    activePortfolio,
+    refreshSubCategories 
+  } = usePortfolio();
+
+  const { 
+    subCategories,
+    createSubCategory,
+    assignAssetToSubCategory, 
+    removeAssetFromCategory,
+    getSubCategoryForAssetName,
+    updateSubCategory,
+    deleteSubCategory
+  } = useSubCategories();
+  // (Uzun basım ile düzenle/sil için) aktif menü state aşağıda
+  // edit modal kontrolü
+  const [isEditingSubCategory, setIsEditingSubCategory] = useState(false);
+  const [editingSubCategoryId, setEditingSubCategoryId] = useState(null);
+  // alt kategori işlem menüsü (görsel, modal tabanlı)
+  const [showSubCategoryMenu, setShowSubCategoryMenu] = useState(false);
+  const [activeSubCategoryForMenu, setActiveSubCategoryForMenu] = useState(null);
+  const [menuConfirmDelete, setMenuConfirmDelete] = useState(false);
   // Edit mode kontrolü
   const editingTransaction = route?.params?.editingTransaction;
   const isEditMode = !!editingTransaction;
 
   // Form state
   const [mainCategory, setMainCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null); // Alt kategori seçimi
   const [assetName, setAssetName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
@@ -54,6 +85,13 @@ export default function TransactionScreen({ route, navigation }) {
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [popularAssets, setPopularAssets] = useState([]);
+  
+  // SubCategory Modal state
+  const [showSubCategoryModal, setShowSubCategoryModal] = useState(false);
+  const [newSubCategoryName, setNewSubCategoryName] = useState('');
+  const [newSubCategoryIcon, setNewSubCategoryIcon] = useState('📁');
+  const [newSubCategoryColor, setNewSubCategoryColor] = useState('#3B82F6');
+  const [isCreatingSubCategory, setIsCreatingSubCategory] = useState(false);
   
   // Price fetching state
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
@@ -115,8 +153,30 @@ export default function TransactionScreen({ route, navigation }) {
           fullName: editingTransaction.assetName
         });
       }
+
+      // Eğer transaction alt kategori bilgisi içeriyorsa yükle (varsa subCategories zaten context'ten gelmiş olur)
+      if (editingTransaction.subCategoryId) {
+        const existing = subCategories.find(sc => sc.id === editingTransaction.subCategoryId) || null;
+        setSelectedSubCategory(existing);
+        console.log('🔎 edit: selectedSubCategory set from editingTransaction.subCategoryId ->', existing && { id: existing.id, name: existing.name });
+      } else {
+        // Eğer transaction kendi içinde subCategoryId yoksa, asset->subcategory mapping'ine bak
+        try {
+          const mapped = getSubCategoryForAssetName(editingTransaction.assetName);
+          if (mapped) {
+            setSelectedSubCategory(mapped);
+            console.log('🔎 edit: selectedSubCategory set from asset mapping ->', { id: mapped.id, name: mapped.name });
+          } else {
+            setSelectedSubCategory(null);
+            console.log('🔎 edit: no subCategoryId on editingTransaction and no asset mapping found');
+          }
+        } catch (err) {
+          console.error('❌ edit: error while checking asset->subcategory mapping', err);
+          setSelectedSubCategory(null);
+        }
+      }
     }
-  }, [editingTransaction]);
+  }, [editingTransaction, subCategories]);
   
   // Preselected asset için ayrı useEffect
   useFocusEffect(
@@ -130,14 +190,29 @@ export default function TransactionScreen({ route, navigation }) {
       
       if (preselectedAsset) {
         isPreselectingRef.current = true;
+        console.log('➡️ TransactionScreen preselect params:', preselectedAsset);
         setMainCategory(preselectedAsset.mainCategory || '');
         setAssetName(preselectedAsset.assetName || '');
-        
+
         // ✅ selectedAssetInfo varsa set et (buton için gerekli!)
         if (preselectedAsset.selectedAssetInfo) {
           setSelectedAssetInfo(preselectedAsset.selectedAssetInfo);
         }
-        
+
+        // Eğer bu varlık zaten bir alt kategoriye atanmışsa, otomatik seç ve kullanıcıyı bilgilendir
+        try {
+          const assigned = getSubCategoryForAssetName(preselectedAsset.assetName);
+          if (assigned) {
+            setSelectedSubCategory(assigned);
+            console.log('🔎 preselect: asset auto-assigned to subcategory ->', { id: assigned.id, name: assigned.name });
+            // Note: previously we showed a toast here informing the user the asset
+            // was auto-assigned to a subcategory. Per UX request, remove that
+            // notification but keep the automatic selection behavior.
+          }
+        } catch (err) {
+          console.warn('❌ preselect: error while checking asset->subcategory mapping', err);
+        }
+
         // Parametreleri temizle
         navigation.setParams({ preselectedAsset: undefined });
         // Preselecting işlemi bittiğini işaretle
@@ -156,6 +231,7 @@ export default function TransactionScreen({ route, navigation }) {
       setShowDropdown(false);
       setUnitPrice(''); // Fiyatı da temizle
       setSelectedAssetInfo(null); // API mapping'i de temizle
+      setSelectedSubCategory(null); // Alt kategori seçimini de temizle
     }
     
     // Kategori seçildiğinde popüler varlıkları yükle
@@ -248,6 +324,17 @@ export default function TransactionScreen({ route, navigation }) {
       category: asset.category,
       fullName: displayName
     });
+    // Eğer bu varlık zaten bir alt kategoriye atanmışsa, otomatik seç
+    try {
+      const assigned = getSubCategoryForAssetName(cleanName);
+      if (assigned) {
+        setSelectedSubCategory(assigned);
+      } else {
+        setSelectedSubCategory(null);
+      }
+    } catch (err) {
+      // ignore
+    }
     
     console.log('✅ Varlık seçildi:', {
       original: displayName,
@@ -375,26 +462,32 @@ export default function TransactionScreen({ route, navigation }) {
 
     // Edit mode: Mevcut transaction'ı güncelle
     if (isEditMode) {
-      const updatedTransaction = {
+      const updatedData = {
         mainCategory,
         assetName: assetName.trim(),
-        symbol: selectedAssetInfo?.symbol || editingTransaction.symbol || null,
-        provider: selectedAssetInfo?.provider || editingTransaction.provider || null,
-        apiId: selectedAssetInfo?.id || editingTransaction.apiId || null,
-        apiCurrency: selectedAssetInfo?.currency || editingTransaction.apiCurrency || null,
+        symbol: selectedAssetInfo?.symbol || null,
+        provider: selectedAssetInfo?.provider || null,
+        apiId: selectedAssetInfo?.id || null,
+        apiCurrency: selectedAssetInfo?.currency || null,
+        subCategoryId: selectedSubCategory?.id || null,
         type: transactionType,
         quantity: parseFloat(quantity),
         unitPrice: parseFloat(unitPrice),
         currency,
         note: note.trim(),
-        date: editingTransaction.date, // Orijinal tarih korunur
       };
 
-      console.log('✏️ Transaction güncelleniyor:', editingTransaction.id);
-
-      const success = await updateTransaction(editingTransaction.id, updatedTransaction);
-
-      if (success) {
+      const ok = await updateTransaction(editingTransaction.id, updatedData);
+      if (ok) {
+        try {
+          if (selectedSubCategory && selectedSubCategory.id) {
+            await assignAssetToSubCategory(assetName.trim(), selectedSubCategory.id);
+          } else {
+            await removeAssetFromCategory(assetName.trim());
+          }
+        } catch (err) {
+          console.error('⚠️ Mapping update failed after transaction update:', err);
+        }
         showToast('İşlem güncellendi', 'success');
         // İşlem geçmişine geri dön
         setTimeout(() => {
@@ -415,6 +508,7 @@ export default function TransactionScreen({ route, navigation }) {
       provider: selectedAssetInfo?.provider || null,
       apiId: selectedAssetInfo?.id || null, // CoinGecko ID, Yahoo symbol, vb.
       apiCurrency: selectedAssetInfo?.currency || null,
+      subCategoryId: selectedSubCategory?.id || null,
       type: transactionType,
       quantity: parseFloat(quantity),
       unitPrice: parseFloat(unitPrice),
@@ -435,6 +529,16 @@ export default function TransactionScreen({ route, navigation }) {
     const success = await addTransaction(transaction);
 
     if (success) {
+      // Eğer alt kategori seçildiyse mapping'i güncelle -> önce mapping'i kaydet, sonra formu temizle
+      const chosenSubCategoryId = selectedSubCategory?.id || null;
+      if (chosenSubCategoryId) {
+        try {
+          await assignAssetToSubCategory(transaction.assetName, chosenSubCategoryId);
+        } catch (err) {
+          console.error('⚠️ Mapping update failed after transaction create:', err);
+        }
+      }
+
       // Form temizle (kategori korunur)
       resetForm();
 
@@ -449,6 +553,7 @@ export default function TransactionScreen({ route, navigation }) {
   // Form reset - Tamamen temizle
   const resetForm = () => {
     setMainCategory('');
+    setSelectedSubCategory(null);
     setAssetName('');
     setQuantity('');
     setUnitPrice('');
@@ -458,6 +563,146 @@ export default function TransactionScreen({ route, navigation }) {
     setShowDropdown(false);
     setSelectedAssetInfo(null);
     setPopularAssets([]);
+  };
+
+  // Alt Kategori Oluştur
+  const handleCreateSubCategory = async () => {
+    const trimmedName = newSubCategoryName.trim();
+    
+    console.log('🔵 handleCreateSubCategory çağrıldı, name:', trimmedName, 'mainCategory:', mainCategory);
+    
+    if (!trimmedName) {
+      Alert.alert('Hata', 'Lütfen kategori adı girin');
+      return;
+    }
+
+    // Aynı isimde kategori var mı kontrol et
+    const exists = subCategories.some(
+      sc => sc.parentCategory === mainCategory && 
+            sc.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (exists) {
+      Alert.alert('Hata', 'Bu isimde bir alt kategori zaten var');
+      return;
+    }
+
+    setIsCreatingSubCategory(true);
+    
+    try {
+      console.log('🔵 createSubCategory çağrılıyor...');
+      const newSubCat = await createSubCategory({
+        name: trimmedName,
+        parentCategory: mainCategory,
+        icon: newSubCategoryIcon,
+        color: newSubCategoryColor,
+        targetPercentage: 0,
+      });
+
+      console.log('✅ Yeni kategori oluşturuldu:', newSubCat);
+      
+  setSelectedSubCategory(newSubCat);
+      setShowSubCategoryModal(false);
+      setNewSubCategoryName('');
+      setNewSubCategoryIcon('📁');
+      setNewSubCategoryColor('#3B82F6');
+      
+      showToast(`✅ ${trimmedName} oluşturuldu!`, 'success');
+    } catch (error) {
+      console.error('❌ Alt kategori oluşturma hatası:', error);
+      Alert.alert('Hata', 'Alt kategori oluşturulamadı: ' + error.message);
+    } finally {
+      setIsCreatingSubCategory(false);
+    }
+  };
+
+  // Alt kategori düzenleme işlemi
+  const handleUpdateSubCategory = async () => {
+    if (!editingSubCategoryId) return;
+    const trimmedName = newSubCategoryName.trim();
+    if (!trimmedName) {
+      Alert.alert('Hata', 'Lütfen kategori adı girin');
+      return;
+    }
+
+    try {
+      const updated = await updateSubCategory(editingSubCategoryId, {
+        name: trimmedName,
+        icon: newSubCategoryIcon,
+        color: newSubCategoryColor
+      });
+
+      // Yerel seçimleri güncelle
+      setSelectedSubCategory(updated);
+      showToast('Kategori güncellendi', 'success');
+    } catch (err) {
+      console.error('❌ Kategori güncelleme hatası:', err);
+      Alert.alert('Hata', 'Kategori güncellenemedi: ' + err.message);
+    } finally {
+      setIsEditingSubCategory(false);
+      setEditingSubCategoryId(null);
+      setShowSubCategoryModal(false);
+      setNewSubCategoryName('');
+      setNewSubCategoryIcon('📁');
+      setNewSubCategoryColor('#3B82F6');
+    }
+  };
+
+  // Alt kategori silme
+  const handleDeleteSubCategory = async (id) => {
+    // artık görsel menü üzerinden yönlendirilecek; yine de fonksiyonel silme burada kalıyor
+    try {
+      await deleteSubCategory(id);
+      // Eğer silinen seçiliyse temizle
+      if (selectedSubCategory?.id === id) {
+        setSelectedSubCategory(null);
+      }
+  // temizleme sonrası UI state güncellemesi
+      showToast('Kategori silindi', 'success');
+      return true;
+    } catch (err) {
+      console.error('❌ Kategori silme hatası:', err);
+      Alert.alert('Hata', 'Kategori silinemedi: ' + err.message);
+      return false;
+    }
+  };
+
+  const handleOpenSubCategoryMenu = (subCat) => {
+    setActiveSubCategoryForMenu(subCat);
+    setMenuConfirmDelete(false);
+    setShowSubCategoryMenu(true);
+  };
+
+  const handleMenuEdit = () => {
+    const subCat = activeSubCategoryForMenu;
+    if (!subCat) return;
+    setIsEditingSubCategory(true);
+    setEditingSubCategoryId(subCat.id);
+    setNewSubCategoryName(subCat.name);
+    setNewSubCategoryIcon(subCat.icon || '📁');
+    setNewSubCategoryColor(subCat.color || '#3B82F6');
+    setShowSubCategoryMenu(false);
+    setShowSubCategoryModal(true);
+  };
+
+  const handleMenuInitiateDelete = () => {
+    setMenuConfirmDelete(true);
+  };
+
+  const handleMenuConfirmDelete = async () => {
+    if (!activeSubCategoryForMenu) return;
+    const id = activeSubCategoryForMenu.id;
+    const ok = await handleDeleteSubCategory(id);
+    if (ok) {
+      setShowSubCategoryMenu(false);
+      setActiveSubCategoryForMenu(null);
+    }
+  };
+
+  const handleCloseSubCategoryMenu = () => {
+    setShowSubCategoryMenu(false);
+    setMenuConfirmDelete(false);
+    setActiveSubCategoryForMenu(null);
   };
 
   // Handle buy button
@@ -545,6 +790,56 @@ export default function TransactionScreen({ route, navigation }) {
               ))}
             </View>
           </View>
+
+          {/* Alt Kategori Seçimi - Kategori seçildiyse göster */}
+          {mainCategory && (
+            <View style={styles.section}>
+              <Text style={styles.label}>🏷️ Alt Kategori (Opsiyonel)</Text>
+              <View style={styles.subCategoryContainer}>
+                {[
+                  ...subCategories
+                    .filter(sc => sc.parentCategory === mainCategory && sc.id)
+                    .map((subCat) => (
+                      <TouchableOpacity
+                        key={subCat.id}
+                        style={[
+                          styles.subCategoryChip,
+                          selectedSubCategory?.id === subCat.id && styles.subCategoryChipActive,
+                          { borderColor: subCat.color }
+                        ]}
+                        onPress={() => setSelectedSubCategory(subCat)}
+                        onLongPress={() => handleOpenSubCategoryMenu(subCat)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.subCategoryChipText,
+                          selectedSubCategory?.id === subCat.id && styles.subCategoryChipTextActive
+                        ]}>
+                          {subCat.icon} {subCat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    )),
+
+                  <TouchableOpacity
+                    key="create-new-subcategory"
+                    style={[styles.subCategoryChip, styles.subCategoryChipNew]}
+                    onPress={() => {
+                      // Yeni oluşturma moduysa düzenleme flag'lerini sıfırla
+                      setIsEditingSubCategory(false);
+                      setEditingSubCategoryId(null);
+                      setShowSubCategoryModal(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.subCategoryChipTextNew}>
+                      + Yeni Oluştur
+                    </Text>
+                  </TouchableOpacity>
+                ]}
+              </View>
+              {/* selection is cleared by tapping another chip; explicit clear button removed per UX request */}
+            </View>
+          )}
 
           {/* Varlık Adı */}
           <View style={styles.section}>
@@ -809,6 +1104,8 @@ export default function TransactionScreen({ route, navigation }) {
             </View>
           )}
 
+          {/* Reklam banner (placeholder) - scroll içeriğinin bir parçası olacak */}
+          <AdBanner style={{ marginVertical: 8 }} />
           {/* Sabit butonların arkasında kalmaması için boşluk */}
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -867,6 +1164,179 @@ export default function TransactionScreen({ route, navigation }) {
           </View>
         </Animated.View>
       )}
+
+      {/* Alt Kategori Oluşturma Modal */}
+      <Modal
+        visible={showSubCategoryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSubCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{isEditingSubCategory ? '✏️ Alt Kategori Düzenle' : '✨ Yeni Alt Kategori'}</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowSubCategoryModal(false);
+                  // düzenleme modunu kapat
+                  setIsEditingSubCategory(false);
+                  setEditingSubCategoryId(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Ana Kategori Göster */}
+            {mainCategory && (
+              <View style={styles.modalInfoBox}>
+                <Text style={styles.modalInfoLabel}>Ana Kategori</Text>
+                <Text style={styles.modalInfoValue}>
+                  {mainCategory === 'Altın' && '🥇 Altın'}
+                  {mainCategory === 'Döviz' && '💵 Döviz'}
+                  {mainCategory === 'Kripto' && '₿ Kripto'}
+                  {mainCategory === 'Borsa' && '📈 Borsa'}
+                </Text>
+              </View>
+            )}
+
+            {/* Kategori Adı */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalLabel}>Kategori Adı</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Örn: Emlak, Teknoloji, Bireysel..."
+                placeholderTextColor={COLORS.mediumGray}
+                value={newSubCategoryName}
+                onChangeText={setNewSubCategoryName}
+                maxLength={30}
+              />
+            </View>
+
+            {/* Emoji Seçimi */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalLabel}>İkon</Text>
+              <View style={styles.emojiGrid}>
+                {COMMON_EMOJIS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[
+                      styles.emojiButton,
+                      newSubCategoryIcon === emoji && styles.emojiButtonActive
+                    ]}
+                    onPress={() => setNewSubCategoryIcon(emoji)}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Renk Seçimi */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalLabel}>Renk</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.colorScroll}
+              >
+                {PRESET_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorButton,
+                      { backgroundColor: color },
+                      newSubCategoryColor === color && styles.colorButtonActive
+                    ]}
+                    onPress={() => setNewSubCategoryColor(color)}
+                  >
+                    {newSubCategoryColor === color && (
+                      <Text style={styles.colorCheckmark}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowSubCategoryModal(false);
+                  setNewSubCategoryName('');
+                  setNewSubCategoryIcon('📁');
+                  setNewSubCategoryColor('#3B82F6');
+                  setIsEditingSubCategory(false);
+                  setEditingSubCategoryId(null);
+                }}
+              >
+                <Text style={styles.modalButtonTextCancel}>İptal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCreate]}
+                onPress={isEditingSubCategory ? handleUpdateSubCategory : handleCreateSubCategory}
+                disabled={isCreatingSubCategory}
+              >
+                {isCreatingSubCategory ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalButtonTextCreate}>{isEditingSubCategory ? 'Güncelle' : 'Oluştur'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Alt kategori işlem menüsü - şık bottom sheet tarzı */}
+      <Modal
+        visible={showSubCategoryMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseSubCategoryMenu}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseSubCategoryMenu}>
+          <View style={styles.menuBackdrop} />
+        </TouchableWithoutFeedback>
+
+        <View style={styles.menuContainer} pointerEvents="box-none">
+          <View style={styles.menuCard}>
+            <Text style={styles.menuTitle}>{activeSubCategoryForMenu?.icon} {activeSubCategoryForMenu?.name}</Text>
+            {!menuConfirmDelete ? (
+              <>
+                <TouchableOpacity style={styles.menuButton} onPress={handleMenuEdit}>
+                  <Text style={styles.menuButtonText}>Düzenle</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.menuButton, styles.menuButtonDestructive]} onPress={handleMenuInitiateDelete}>
+                  <Text style={[styles.menuButtonText, styles.menuButtonTextDestructive]}>Sil</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuButton} onPress={handleCloseSubCategoryMenu}>
+                  <Text style={styles.menuButtonText}>Kapat</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.menuDangerText}>Bu alt kategoriyi silmek istediğinize emin misiniz? İşlem geri alınamaz.</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                  <TouchableOpacity style={[styles.modalButton, styles.modalButtonCancel]} onPress={() => setMenuConfirmDelete(false)}>
+                    <Text style={styles.modalButtonTextCancel}>İptal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalButton, styles.modalButtonCreate]} onPress={handleMenuConfirmDelete}>
+                    <Text style={styles.modalButtonTextCreate}>Sil</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -875,6 +1345,57 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
+  },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)'
+  },
+  menuContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    padding: 16
+  },
+  menuCard: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 8
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12
+  },
+  menuButton: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: '#F3F4F6'
+  },
+  menuButtonText: {
+    fontSize: 15,
+    color: '#111827'
+  },
+  menuButtonDestructive: {
+    backgroundColor: '#fff0f0'
+  },
+  menuButtonTextDestructive: {
+    color: '#b91c1c',
+    fontWeight: '700'
+  },
+  menuDangerText: {
+    color: '#b91c1c',
+    fontSize: 14,
+    marginTop: 4
   },
   header: {
     flexDirection: 'row',
@@ -1195,5 +1716,192 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
     textAlign: 'center',
+  },
+  // Alt Kategori Seçim Stilleri
+  subCategoryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  subCategoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.lightGray,
+  },
+  subCategoryChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  subCategoryChipNew: {
+    backgroundColor: '#F0F4FF',
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+  },
+  subCategoryChipText: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    fontWeight: '500',
+  },
+  subCategoryChipTextActive: {
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+  subCategoryChipTextNew: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: SCREEN_WIDTH * 0.9,
+    maxHeight: SCREEN_HEIGHT * 0.8,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.darkGray,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: COLORS.mediumGray,
+    fontWeight: '600',
+  },
+  modalInfoBox: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+  },
+  modalInfoLabel: {
+    fontSize: 12,
+    color: COLORS.mediumGray,
+    marginBottom: 4,
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.darkGray,
+  },
+  modalSection: {
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.darkGray,
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: COLORS.darkGray,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  emojiButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  emojiButtonActive: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  emojiText: {
+    fontSize: 24,
+  },
+  colorScroll: {
+    flexGrow: 0,
+  },
+  colorButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  colorButtonActive: {
+    borderColor: COLORS.darkGray,
+  },
+  colorCheckmark: {
+    fontSize: 20,
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#F3F4F6',
+  },
+  modalButtonCreate: {
+    backgroundColor: COLORS.primary,
+  },
+  modalButtonTextCancel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.mediumGray,
+  },
+  modalButtonTextCreate: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });

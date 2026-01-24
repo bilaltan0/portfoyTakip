@@ -133,7 +133,7 @@ export default function AssetDetailCard({
       )}
       
       <View style={styles.percentage}>
-        <Text style={styles.percentageText}>
+        <Text style={[styles.percentageText, { color: asset.color || COLORS.gold }]}> 
           {(() => {
             const pct = asset.exactPercentage || asset.percentage || 0;
             return isFinite(pct) ? pct.toFixed(2) : '0.00';

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
 import { ChevronDown, Plus, Edit2, Trash2, X, MoreVertical } from 'lucide-react-native';
+import RewardedModal from './RewardedModal';
+import { useAd } from '../context/AdContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SIZES, FONTS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 
@@ -15,12 +18,15 @@ const PortfolioSelector = () => {
     renamePortfolio,
   } = usePortfolio();
 
+  const { enabled: adsEnabled, initialized: adsInitialized, buildDefault } = useAd();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [menuVisible, setMenuVisible] = useState(null); // Hangi portföyün menüsü açık
+  const [rewardedVisible, setRewardedVisible] = useState(false);
 
   const handleSelectPortfolio = (portfolioId) => {
     setActivePortfolioId(portfolioId);
@@ -37,6 +43,43 @@ const PortfolioSelector = () => {
     setNewPortfolioName('');
     setShowCreateInput(false);
     setModalVisible(false);
+  };
+
+  const handleAttemptCreate = async () => {
+    try {
+      // Determine effective ad-enabled state by reading the persisted override directly
+      // to avoid stale hook values at the moment of user interaction.
+      const overrideVal = await AsyncStorage.getItem('@enable_ads_override');
+      const effectiveAdsEnabled = overrideVal !== null ? (overrideVal === 'true') : !!buildDefault;
+
+      console.log('📣 AttemptCreate - portfolios:', portfolios.length, 'effectiveAdsEnabled:', effectiveAdsEnabled);
+
+      // If ads are disabled via runtime toggle (or build default), allow direct creation
+      if (!effectiveAdsEnabled) {
+        setShowCreateInput(true);
+        return;
+      }
+
+
+
+      // Otherwise, if there are already 2 portfolios, show rewarded modal
+      if (portfolios.length >= 2) {
+        setRewardedVisible(true);
+        return;
+      }
+
+      setShowCreateInput(true);
+    } catch (e) {
+      // On error, fall back to allowing creation
+      console.warn('Error while checking ad/unlock state', e);
+      setShowCreateInput(true);
+    }
+  };
+
+  const onRewardedUnlocked = () => {
+    // After the rewarded ad is watched, open the create input transiently
+    setRewardedVisible(false);
+    setShowCreateInput(true);
   };
 
   const handleDeletePortfolio = (portfolioId) => {
@@ -275,12 +318,19 @@ const PortfolioSelector = () => {
               ) : (
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => setShowCreateInput(true)}
+                  onPress={handleAttemptCreate}
                 >
                   <Plus size={20} color={COLORS.primary} />
                   <Text style={styles.addButtonText}>Yeni Portföy Oluştur</Text>
                 </TouchableOpacity>
               )}
+            
+            <RewardedModal
+              visible={rewardedVisible}
+              onClose={() => setRewardedVisible(false)}
+              onUnlocked={onRewardedUnlocked}
+            />
+
             </ScrollView>
           </View>
         </TouchableOpacity>

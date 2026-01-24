@@ -21,18 +21,47 @@
  * Liste yapısı için FlatList veya ScrollView kullanılacak.
  */
 
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, Alert, Switch, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { SettingsIcon, TrashIcon, HelpCircleIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
+// useSubCategories not needed in MoreScreen after removing subcategory reset option
+import { useAd } from '../context/AdContext';
 import MenuItem from '../components/MenuItem';
+import AdBanner from '../components/AdBanner';
+// Debug storage helpers removed — no longer needed in MoreScreen
 import Constants from 'expo-constants';
+import { Linking } from 'react-native';
+
+// DebugPanel removed — test UI for reward unlock was deprecated
+
+function AdsSwitch() {
+  const { enabled, setEnableAds, initialized } = useAd();
+
+  if (!initialized) {
+    return <Switch value={false} onValueChange={() => {}} disabled />;
+  }
+
+  return (
+    <Switch
+      value={!!enabled}
+      onValueChange={(v) => setEnableAds(!!v)}
+    />
+  );
+}
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
-  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  // subcategory clearing moved to dedicated editor; no handler needed here
+  const appVersion = Constants.expoConfig?.version || Constants.manifest?.version || '1.0.0';
+  const buildNumber =
+    Constants.expoConfig?.android?.versionCode ||
+    Constants.manifest?.android?.versionCode ||
+    Constants.expoConfig?.ios?.buildNumber ||
+    Constants.manifest?.ios?.buildNumber ||
+    null;
 
   const handleClearData = () => {
     Alert.alert(
@@ -51,6 +80,8 @@ export default function MoreScreen({ navigation }) {
       ]
     );
   };
+
+  // handleClearSubCategories removed — subcategory clearing is handled in editor UI
 
   const handleTransactionHistory = () => {
     if (!activePortfolio) {
@@ -83,6 +114,29 @@ export default function MoreScreen({ navigation }) {
       onPress: () => navigation.navigate('Help'),
     },
     {
+      id: 'rate_now',
+      title: 'Uygulamayı Değerlendir',
+      subtitle: 'Hemen kısa bir değerlendirme yapın',
+      icon: HelpCircleIcon,
+      onPress: async () => {
+        try {
+          const InAppReview = require('react-native-in-app-review');
+          if (InAppReview && InAppReview.isAvailable && InAppReview.isAvailable()) {
+            await InAppReview.RequestInAppReview();
+            return;
+          }
+        } catch (e) {
+          console.debug('In-app review module not available', e);
+        }
+        // Fallback: open Play Store
+        const pkg = Constants.expoConfig?.android?.package || Constants.manifest?.android?.package;
+        if (!pkg) return;
+        const androidUrl = `market://details?id=${pkg}`;
+        const webUrl = `https://play.google.com/store/apps/details?id=${pkg}`;
+        Linking.openURL(androidUrl).catch(() => Linking.openURL(webUrl));
+      }
+    },
+    {
       id: 'debug',
       title: 'Verileri Temizle',
       subtitle: 'Tüm portföy ve işlem verilerini sil',
@@ -90,6 +144,7 @@ export default function MoreScreen({ navigation }) {
       onPress: handleClearData,
       danger: true,
     },
+    // 'Alt Kategorileri Sıfırla' removed from More menu; subcategory edits/deletes handled elsewhere
   ];
 
   return (
@@ -114,12 +169,30 @@ export default function MoreScreen({ navigation }) {
           ))}
         </View>
 
+        {/* Ads Toggle */}
+        <View style={styles.adsToggleCard}>
+          <View style={styles.adsTextContainer}>
+            <Text style={styles.adsTitle}>Reklamları Göster</Text>
+            <Text style={styles.adsSubtitle}>Kapalı test sırasında reklamları açıp kapatabilirsiniz.</Text>
+          </View>
+          <View style={styles.adsSwitch}>
+            <AdsSwitch />
+          </View>
+        </View>
+
+  {/* Placeholder banner in More screen (below toggle) */}
+  <AdBanner style={{ marginTop: 8 }} />
+
+        {/* Debug panel removed — reward/unlock state is now single-use and no longer persisted */}
+
         {/* Spacer - Alt kısmı aşağı iter */}
         <View style={{ flex: 1, minHeight: 100 }} />
 
         {/* App Info */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>PortföyMate • Versiyon {appVersion}</Text>
+          <Text style={styles.footerText}>
+            PortföyMate • Versiyon {appVersion}{buildNumber ? ` (build ${buildNumber})` : ''}
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -150,6 +223,32 @@ const styles = StyleSheet.create({
   menuSection: {
     // MenuItem component'i kendi stilini yönetiyor
   },
+  adsToggleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  adsTextContainer: {
+    flex: 1,
+  },
+  adsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  adsSubtitle: {
+    fontSize: 13,
+    color: COLORS.mediumGray,
+  },
+  adsSwitch: {
+    marginLeft: 12,
+  },
   footer: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -157,5 +256,30 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: COLORS.mediumGray,
+  },
+  debugCard: {
+    backgroundColor: COLORS.white,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  debugBtn: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  debugBtnDanger: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
 });
