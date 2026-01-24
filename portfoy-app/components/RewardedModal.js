@@ -6,6 +6,7 @@ import { useAd } from '../context/AdContext';
 
 export default function RewardedModal({ visible, onClose, onUnlocked }) {
   const [loading, setLoading] = useState(false);
+  const adTimeoutRef = React.useRef(null);
 
   useEffect(() => {
     if (visible) {
@@ -47,15 +48,36 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
               Alert.alert('', successMessage);
             }
             onUnlocked && onUnlocked();
+            // Clear timeout in case fallback was scheduled
+            if (adTimeoutRef.current) {
+              clearTimeout(adTimeoutRef.current);
+              adTimeoutRef.current = null;
+            }
           }
           if (type === RewardedAdEventType.CLOSED) {
             // cleanup
             setLoading(false);
             onClose && onClose();
             rewarded.load();
+            if (adTimeoutRef.current) {
+              clearTimeout(adTimeoutRef.current);
+              adTimeoutRef.current = null;
+            }
           }
           if (type === RewardedAdEventType.ERROR) {
             console.warn('Rewarded ad error', error);
+            // If the ad errors, fallback to simulated flow so user isn't stuck
+            if (adTimeoutRef.current) {
+              clearTimeout(adTimeoutRef.current);
+              adTimeoutRef.current = null;
+            }
+            try {
+              // best-effort: close modal and simulate reward failure fallback
+              setLoading(false);
+              onClose && onClose();
+            } catch (e) {
+              // ignore
+            }
           }
         });
 
@@ -65,8 +87,33 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
         setTimeout(() => {
           try {
             rewarded.show();
+            // Safety timeout: if nothing happens within 15s, fallback to simulated
+            if (adTimeoutRef.current) clearTimeout(adTimeoutRef.current);
+            adTimeoutRef.current = setTimeout(() => {
+              console.warn('Rewarded ad timeout; falling back to simulated flow');
+              try {
+                setLoading(false);
+                onClose && onClose();
+                // simulate completion to grant unlock
+                onUnlocked && onUnlocked();
+              } catch (e) {
+                console.error('Fallback after timeout failed', e);
+              } finally {
+                adTimeoutRef.current = null;
+              }
+            }, 15000);
           } catch (e) {
             console.warn('Could not show rewarded (fallback to simulate)', e);
+            // immediate fallback
+            setLoading(false);
+            setTimeout(() => {
+              try {
+                onUnlocked && onUnlocked();
+              } finally {
+                setLoading(false);
+                onClose && onClose();
+              }
+            }, 600);
           }
         }, 600);
 
