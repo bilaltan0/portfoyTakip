@@ -114,6 +114,11 @@ export default function DashboardScreen({ navigation }) {
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   // Ref to horizontal cards ScrollView so we can auto-scroll (fix clipping on first card)
   const cardsScrollRef = useRef(null);
+  // Store scroll positions per view (main / category / category+subcategory)
+  const cardsScrollPositionsRef = useRef({});
+  // Flag to indicate a programmatic scroll in progress (prevent onScroll saving)
+  const programmaticScrollRef = useRef(false);
+  const scrollSaveTimeoutRef = useRef(null);
 
   // Force re-render when screen regains focus (fix: quick view not loading after swipe/back)
   const [focusTick, setFocusTick] = useState(0);
@@ -962,42 +967,63 @@ export default function DashboardScreen({ navigation }) {
 
   // When selectedSubCategory changes (entering/exiting a subcategory) reset
   // the horizontal quickview scroll so previous scroll positions inside the
-  // subcategory don't leak back to the parent/category view.
+  // subcategory don't leak back to the parent/category view. We perform a
+  // programmatic scroll to start but avoid recording that programmatic
+  // position as a user scroll position.
   useEffect(() => {
     if (cardsScrollRef && cardsScrollRef.current) {
       try {
+        programmaticScrollRef.current = true;
         cardsScrollRef.current.scrollTo({ x: 0, animated: true });
+        setTimeout(() => { programmaticScrollRef.current = false; }, 400);
       } catch (e) {
-        // Fallback for older RN versions
         try {
           const responder = cardsScrollRef.current.getScrollResponder && cardsScrollRef.current.getScrollResponder();
+          programmaticScrollRef.current = true;
           responder && responder.scrollTo && responder.scrollTo({ x: 0, animated: true });
+          setTimeout(() => { programmaticScrollRef.current = false; }, 400);
         } catch (err) {
-          // ignore
+          programmaticScrollRef.current = false;
         }
       }
     }
   }, [selectedSubCategory]);
 
   // When user navigates into a category (selectedCategory changes) or goes
-  // back to the main quick view (selectedCategory becomes null), reset the
-  // horizontal scroll so the first card is visible. This prevents cases
-  // where the scroll position from the category view persists and hides
-  // the quickview cards when returning.
+  // back to the main quick view (selectedCategory becomes null), restore the
+  // stored horizontal scroll position for that view (if any) otherwise
+  // scroll to start. This preserves per-view user scroll positions.
   useEffect(() => {
+    const viewKey = selectedCategory ? `cat:${selectedCategory}` : 'main';
+    const x = cardsScrollPositionsRef.current[viewKey] || 0;
     if (cardsScrollRef && cardsScrollRef.current) {
       try {
-        cardsScrollRef.current.scrollTo({ x: 0, animated: true });
+        programmaticScrollRef.current = true;
+        cardsScrollRef.current.scrollTo({ x, animated: true });
+        setTimeout(() => { programmaticScrollRef.current = false; }, 400);
       } catch (e) {
         try {
           const responder = cardsScrollRef.current.getScrollResponder && cardsScrollRef.current.getScrollResponder();
-          responder && responder.scrollTo && responder.scrollTo({ x: 0, animated: true });
+          programmaticScrollRef.current = true;
+          responder && responder.scrollTo && responder.scrollTo({ x, animated: true });
+          setTimeout(() => { programmaticScrollRef.current = false; }, 400);
         } catch (err) {
-          // ignore
+          programmaticScrollRef.current = false;
         }
       }
     }
   }, [selectedCategory]);
+
+  // Handler to update stored scroll position (debounced)
+  const handleCardsScroll = (event) => {
+    if (programmaticScrollRef.current) return;
+    const x = event.nativeEvent.contentOffset.x || 0;
+    const viewKey = selectedCategory ? `cat:${selectedCategory}` : 'main';
+    if (scrollSaveTimeoutRef.current) clearTimeout(scrollSaveTimeoutRef.current);
+    scrollSaveTimeoutRef.current = setTimeout(() => {
+      cardsScrollPositionsRef.current[viewKey] = x;
+    }, 150);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -1117,6 +1143,8 @@ export default function DashboardScreen({ navigation }) {
           showsHorizontalScrollIndicator={false}
           style={styles.cardsRow}
           ref={cardsScrollRef}
+          onScroll={handleCardsScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={{ paddingLeft: (selectedSubCategory === '__UNCATEGORIZED__') ? 28 : 16, paddingRight: 16, alignItems: 'flex-start' }}
         >
           {selectedCategory ? (
