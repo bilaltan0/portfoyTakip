@@ -11,7 +11,8 @@ import { COLORS } from '../constants/theme';
 export default function CategoryButton({ 
   label, 
   isActive = false, 
-  onPress 
+  onPress,
+  onLayout
 }) {
   return (
     <TouchableOpacity
@@ -20,6 +21,7 @@ export default function CategoryButton({
         isActive && styles.buttonActive,
       ]}
       onPress={onPress}
+      onLayout={onLayout}
     >
       <Text
         style={[
