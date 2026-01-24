@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ToastAndroid, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ToastAndroid, Alert, NativeModules } from 'react-native';
 import { COLORS } from '../constants/theme';
 
 export default function RewardedModal({ visible, onClose, onUnlocked }) {
@@ -16,57 +16,68 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
     setLoading(true);
     console.log('🎬 Rewarded: attempt to show real rewarded ad (or fallback)');
 
-    try {
-      // Try to use react-native-google-mobile-ads if it's installed.
-      // eslint-disable-next-line global-require
-      const { RewardedAd, RewardedAdEventType, TestIds } = require('react-native-google-mobile-ads');
-      const adUnitId = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
-      const rewarded = RewardedAd.createForAdRequest(adUnitId, { requestNonPersonalizedAdsOnly: true });
+    // Only require the SDK if the native module is present. The package
+    // accesses TurboModuleRegistry at module import time which will throw in
+    // Expo Go; avoid requiring unless we can actually use the native module.
+    const nativePresent = !!(
+      NativeModules.RNGoogleMobileAdsModule || NativeModules.RNGoogleMobileAds
+    );
 
-      const unsub = rewarded.onAdEvent((type, error, reward) => {
-        if (type === RewardedAdEventType.LOADED) {
-          console.log('Rewarded loaded');
-        }
-        if (type === RewardedAdEventType.EARNED_REWARD) {
-          console.log('event: rewarded_completed', reward);
-          const successMessage = 'Teşekkürler — şimdi yeni portföyünü oluşturabilirsin.';
-          if (Platform.OS === 'android' && ToastAndroid) {
-            ToastAndroid.show(successMessage, ToastAndroid.SHORT);
-          } else {
-            Alert.alert('', successMessage);
+    if (nativePresent) {
+      try {
+        // Try to use react-native-google-mobile-ads if it's installed.
+        // eslint-disable-next-line global-require
+        const { RewardedAd, RewardedAdEventType, TestIds } = require('react-native-google-mobile-ads');
+
+        const adUnitId = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ';
+        const rewarded = RewardedAd.createForAdRequest(adUnitId, { requestNonPersonalizedAdsOnly: true });
+
+        const unsub = rewarded.onAdEvent((type, error, reward) => {
+          if (type === RewardedAdEventType.LOADED) {
+            console.log('Rewarded loaded');
           }
-          onUnlocked && onUnlocked();
-        }
-        if (type === RewardedAdEventType.CLOSED) {
-          // cleanup
-          setLoading(false);
-          onClose && onClose();
-          rewarded.load();
-        }
-        if (type === RewardedAdEventType.ERROR) {
-          console.warn('Rewarded ad error', error);
-        }
-      });
+          if (type === RewardedAdEventType.EARNED_REWARD) {
+            console.log('event: rewarded_completed', reward);
+            const successMessage = 'Teşekkürler — şimdi yeni portföyünü oluşturabilirsin.';
+            if (Platform.OS === 'android' && ToastAndroid) {
+              ToastAndroid.show(successMessage, ToastAndroid.SHORT);
+            } else {
+              Alert.alert('', successMessage);
+            }
+            onUnlocked && onUnlocked();
+          }
+          if (type === RewardedAdEventType.CLOSED) {
+            // cleanup
+            setLoading(false);
+            onClose && onClose();
+            rewarded.load();
+          }
+          if (type === RewardedAdEventType.ERROR) {
+            console.warn('Rewarded ad error', error);
+          }
+        });
 
-      // load and show when ready
-      rewarded.load();
-      // show when loaded - listener will handle the rest
-      setTimeout(() => {
-        try {
-          rewarded.show();
-        } catch (e) {
-          console.warn('Could not show rewarded (fallback to simulate)', e);
-        }
-      }, 600);
+        // load and show when ready
+        rewarded.load();
+        // show when loaded - listener will handle the rest
+        setTimeout(() => {
+          try {
+            rewarded.show();
+          } catch (e) {
+            console.warn('Could not show rewarded (fallback to simulate)', e);
+          }
+        }, 600);
 
-      // unsubscribe after modal closes
-      const cleanup = () => unsub && unsub();
-      // best-effort cleanup when component unmounts
-      return cleanup;
-    } catch (err) {
-      // SDK not available or failed — fallback to simulated 3s flow
-      console.debug('Rewarded SDK not available, falling back to simulated ad', err);
-      console.log('🎬 Rewarded: simulated ad started');
+        // unsubscribe after modal closes
+        const cleanup = () => unsub && unsub();
+        // best-effort cleanup when component unmounts
+        return cleanup;
+      } catch (err) {
+        // SDK not available or failed — fallback to simulated 3s flow
+        console.debug('Rewarded SDK not available, falling back to simulated ad', err);
+        console.log('🎬 Rewarded: simulated ad started');
+      }
+    }
 
       setTimeout(() => {
         try {
@@ -88,7 +99,7 @@ export default function RewardedModal({ visible, onClose, onUnlocked }) {
           onClose && onClose();
         }
       }, 3000);
-    }
+    
   };
 
   return (

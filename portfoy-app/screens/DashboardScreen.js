@@ -60,7 +60,6 @@ import DoughnutChart from '../components/DoughnutChart';
 import ChartLegend from '../components/ChartLegend';
 import ProfitLossCard from '../components/ProfitLossCard';
 import PortfolioValueHeader from '../components/PortfolioValueHeader';
-import AdBanner from '../components/AdBanner';
 
 // Services
 import { clearPriceCache } from '../services/priceService';
@@ -115,6 +114,16 @@ export default function DashboardScreen({ navigation }) {
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   // Ref to horizontal cards ScrollView so we can auto-scroll (fix clipping on first card)
   const cardsScrollRef = useRef(null);
+
+  // Force re-render when screen regains focus (fix: quick view not loading after swipe/back)
+  const [focusTick, setFocusTick] = useState(0);
+  useFocusEffect(
+    React.useCallback(() => {
+      // increment a tick so components that use it as a key will remount
+      setFocusTick(t => t + 1);
+      return () => {};
+    }, [])
+  );
 
   // Debug: Verileri temizle
   const handleClearData = () => {
@@ -1081,6 +1090,7 @@ export default function DashboardScreen({ navigation }) {
         
         {/* Quick Look Cards / Asset Detail Cards */}
         <ScrollView
+          key={`quickview-${focusTick}`}
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.cardsRow}
@@ -1203,12 +1213,9 @@ export default function DashboardScreen({ navigation }) {
             )
           )}
   </ScrollView>
-            {/* Reklam Banner (placeholder) */}
-            <AdBanner style={{ marginHorizontal: 16 }} />
+      </ScrollView>
 
-          </ScrollView>
-
-          {/* Para Birimi Seçici Modal */}
+      {/* Para Birimi Seçici Modal */}
       <Modal
         visible={showCurrencyModal}
         transparent={true}
