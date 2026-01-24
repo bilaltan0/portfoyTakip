@@ -763,6 +763,8 @@ export default function TransactionScreen({ route, navigation }) {
         </Text>
         <View style={styles.headerSpacer} />
       </View>
+      {/* Banner reklamı header altında göster (küçük ekranlarda görünür olsun) */}
+      <AdBanner style={{ marginTop: 8, marginHorizontal: 16 }} />
       
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1109,8 +1111,6 @@ export default function TransactionScreen({ route, navigation }) {
           )}
 
           {/* Sabit butonların arkasında kalmaması için boşluk */}
-          {/* Banner reklam alanı */}
-          <AdBanner style={{ marginVertical: 8 }} />
           <View style={{ height: 120 }} />
         </ScrollView>
         </TouchableWithoutFeedback>

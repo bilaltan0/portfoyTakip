@@ -1266,7 +1266,10 @@ export default function DashboardScreen({ navigation }) {
               </View>
             )
           )}
-  </ScrollView>
+    </ScrollView>
+
+          {/* Bottom banner - ensure visibility at very bottom of dashboard */}
+          <AdBanner style={{ marginVertical: 12, marginHorizontal: 16 }} />
       </ScrollView>
 
       {/* Para Birimi Seçici Modal */}
