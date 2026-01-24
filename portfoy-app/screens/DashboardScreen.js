@@ -960,9 +960,11 @@ export default function DashboardScreen({ navigation }) {
     };
   });
 
-  // If user selects the pseudo-uncategorized subcategory, ensure the horizontal cards scroll to start
+  // When selectedSubCategory changes (entering/exiting a subcategory) reset
+  // the horizontal quickview scroll so previous scroll positions inside the
+  // subcategory don't leak back to the parent/category view.
   useEffect(() => {
-    if (selectedSubCategory === '__UNCATEGORIZED__' && cardsScrollRef && cardsScrollRef.current) {
+    if (cardsScrollRef && cardsScrollRef.current) {
       try {
         cardsScrollRef.current.scrollTo({ x: 0, animated: true });
       } catch (e) {
@@ -976,6 +978,26 @@ export default function DashboardScreen({ navigation }) {
       }
     }
   }, [selectedSubCategory]);
+
+  // When user navigates into a category (selectedCategory changes) or goes
+  // back to the main quick view (selectedCategory becomes null), reset the
+  // horizontal scroll so the first card is visible. This prevents cases
+  // where the scroll position from the category view persists and hides
+  // the quickview cards when returning.
+  useEffect(() => {
+    if (cardsScrollRef && cardsScrollRef.current) {
+      try {
+        cardsScrollRef.current.scrollTo({ x: 0, animated: true });
+      } catch (e) {
+        try {
+          const responder = cardsScrollRef.current.getScrollResponder && cardsScrollRef.current.getScrollResponder();
+          responder && responder.scrollTo && responder.scrollTo({ x: 0, animated: true });
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
+  }, [selectedCategory]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
