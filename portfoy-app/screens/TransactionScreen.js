@@ -108,6 +108,10 @@ export default function TransactionScreen({ route, navigation }) {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success'); // 'success' or 'error'
   const toastAnim = useRef(new Animated.Value(0)).current;
+
+  // Fixed buttons bottom inset — when keyboard opens we lift the buttons
+  // above the keyboard; when keyboard closes keep a small visible gap.
+  const [fixedButtonBottomInset, setFixedButtonBottomInset] = useState(12);
   
   // Preselected asset kontrolü için ref
   const isPreselectingRef = React.useRef(false);
@@ -432,6 +436,26 @@ export default function TransactionScreen({ route, navigation }) {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
+    };
+  }, []);
+
+  // Keep fixed action buttons slightly raised and move them above the
+  // keyboard when it opens so their position matches the 'keyboard open'
+  // layout the user prefers.
+  useEffect(() => {
+    const onShow = (e) => {
+      const h = e?.endCoordinates?.height || 300;
+      // Add a small margin so buttons don't touch the keyboard directly
+      setFixedButtonBottomInset(h + 8);
+    };
+    const onHide = () => setFixedButtonBottomInset(12);
+
+    const showSub = Keyboard.addListener('keyboardDidShow', onShow);
+    const hideSub = Keyboard.addListener('keyboardDidHide', onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
     };
   }, []);
 
@@ -1123,8 +1147,8 @@ export default function TransactionScreen({ route, navigation }) {
         </ScrollView>
         </TouchableWithoutFeedback>
 
-        {/* Fixed Action Buttons */}
-        <View style={styles.fixedButtonContainer}>
+  {/* Fixed Action Buttons */}
+  <View style={[styles.fixedButtonContainer, { bottom: fixedButtonBottomInset }] }>
           <View style={styles.actionButtonsRow}>
             {isEditMode ? (
               // Edit mode: Sadece Güncelle butonu
