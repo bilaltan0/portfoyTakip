@@ -2,7 +2,7 @@
   "expo": {
     "name": "PortföyMate",
     "slug": "portfoymate",
-  "version": "1.0.11",
+  "version": "1.0.12",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.bilaltan.portfoyapp",
-  "versionCode": 21,
+  "versionCode": 22,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
