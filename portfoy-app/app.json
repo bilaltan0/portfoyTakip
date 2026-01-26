@@ -2,7 +2,7 @@
   "expo": {
     "name": "PortföyMate",
     "slug": "portfoymate",
-  "version": "1.0.10",
+  "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.bilaltan.portfoyapp",
-  "versionCode": 20,
+  "versionCode": 21,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -37,10 +37,16 @@
         }
       ]
     ],
+    "react-native-google-mobile-ads": {
+      "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+      "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+    },
     "extra": {
       "eas": {
         "projectId": "63f32f4e-ecd4-49ac-97d7-aa56f58a62eb"
       }
+      ,
+      "enableTestAds": false
     }
   }
 }

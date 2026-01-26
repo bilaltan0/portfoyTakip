@@ -14,7 +14,10 @@ export const AdProvider = ({ children }) => {
   // unless intentionally disabled via env. This prevents accidental
   // 'no-ads' behavior in production artifacts.
   const expoVal = Constants.expoConfig?.extra?.enableAds;
-  const buildDefault = typeof expoVal === 'boolean' ? expoVal : (Constants.appOwnership === 'standalone');
+  // Default to disabled unless explicitly enabled via expo config. Previously we
+  // defaulted to enabling ads for standalone builds; per request, default
+  // behaviour should now be disabled and ad state controlled from code.
+  const buildDefault = typeof expoVal === 'boolean' ? expoVal : false;
   const [enabled, setEnabled] = useState(buildDefault);
   const [initialized, setInitialized] = useState(false);
 

@@ -22,13 +22,13 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Alert, Switch, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { SettingsIcon, TrashIcon, HelpCircleIcon, TransactionIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
 // useSubCategories not needed in MoreScreen after removing subcategory reset option
-import { useAd } from '../context/AdContext';
+// useAd no longer needed in MoreScreen (ads UI removed)
 import MenuItem from '../components/MenuItem';
 import AdBanner from '../components/AdBanner';
 // Debug storage helpers removed — no longer needed in MoreScreen
@@ -37,22 +37,7 @@ import { Linking } from 'react-native';
 
 // DebugPanel removed — test UI for reward unlock was deprecated
 
-function AdsSwitch() {
-  const { enabled, setEnableAds, initialized } = useAd();
-
-  if (!initialized) {
-    return <Switch value={false} onValueChange={() => {}} disabled />;
-  }
-
-  return (
-    <Switch
-      value={!!enabled}
-      onValueChange={(v) => setEnableAds(!!v)}
-    />
-  );
-}
-
-// TestAdsSwitch removed: consolidated into single 'Reklamları Göster' switch
+// Ads controls removed from More screen — ads are controlled from code/config
 
 export default function MoreScreen({ navigation }) {
   const { clearAllData, activePortfolio } = usePortfolio();
@@ -173,18 +158,7 @@ export default function MoreScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Ads Toggle */}
-        <View style={styles.adsToggleCard}>
-          <View style={styles.adsTextContainer}>
-            <Text style={styles.adsTitle}>Reklamları Göster</Text>
-            <Text style={styles.adsSubtitle}>Kapalı test sırasında reklamları açıp kapatabilirsiniz.</Text>
-          </View>
-          <View style={styles.adsSwitch}>
-            <AdsSwitch />
-          </View>
-        </View>
-
-        {/* Test Ads toggle removed; use single 'Reklamları Göster' switch */}
+        {/* Ads toggle removed from More screen */}
 
     {/* (Banner moved above) */}
 
@@ -196,7 +170,7 @@ export default function MoreScreen({ navigation }) {
         {/* App Info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            PortföyMate • Versiyon {appVersion}{buildNumber ? ` (build ${buildNumber})` : ''}
+            PortföyMate • Versiyon {appVersion}
           </Text>
         </View>
       </ScrollView>

@@ -23,13 +23,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, PREDEFINED_ASSETS } from '../constants/theme';
+import { COLORS, PREDEFINED_ASSETS, CURRENCY_SYMBOLS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 import { useSubCategories } from '../context/SubCategoryContext';
 import CategoryButton from '../components/CategoryButton';
 import AssetChip from '../components/AssetChip';
 import CurrencyButton from '../components/CurrencyButton';
 import ActionButton from '../components/ActionButton';
+import { BuyIcon, SellIcon } from '../components/icons';
 import AdBanner from '../components/AdBanner';
 import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
 import { fetchAssetPrice } from '../services/priceService';
@@ -82,6 +83,7 @@ export default function TransactionScreen({ route, navigation }) {
   const [quantity, setQuantity] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
   const [currency, setCurrency] = useState('TRY');
+  const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
   const [note, setNote] = useState('');
   
   // Search state
@@ -763,7 +765,7 @@ export default function TransactionScreen({ route, navigation }) {
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditMode ? '✏️ İşlem Düzenle' : '💼 Yeni İşlem'}
+          {isEditMode ? 'İşlem Düzenle' : 'Yeni İşlem'}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -788,7 +790,7 @@ export default function TransactionScreen({ route, navigation }) {
 
           {/* Ana Kategori */}
           <View style={styles.section}>
-            <Text style={styles.label}>📂 Kategori Seçin</Text>
+            <Text style={styles.label}>Kategori</Text>
             <View
               style={[styles.categoryButtons, { position: 'relative' }]}
               onLayout={(e) => setCategoryContainerLayout(e.nativeEvent.layout)}
@@ -1115,18 +1117,6 @@ export default function TransactionScreen({ route, navigation }) {
             />
           </View>
 
-          {/* Toplam Değer Gösterimi */}
-          {quantity && unitPrice && (
-            <View style={styles.totalContainer}>
-              <View>
-                <Text style={styles.totalLabel}>Toplam Tutar</Text>
-                <Text style={styles.totalHint}>{quantity} × {unitPrice} {currency}</Text>
-              </View>
-              <Text style={styles.totalValue}>
-                {(parseFloat(quantity) * parseFloat(unitPrice)).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {currency}
-              </Text>
-            </View>
-          )}
 
           {/* Sabit butonların arkasında kalmaması için boşluk */}
           <View style={{ height: 120 }} />
@@ -1139,7 +1129,7 @@ export default function TransactionScreen({ route, navigation }) {
             {isEditMode ? (
               // Edit mode: Sadece Güncelle butonu
               <ActionButton
-                label={`✏️ ${editingTransaction.type === 'buy' ? 'Alış' : 'Satış'} İşlemini Güncelle`}
+                label={`${editingTransaction.type === 'buy' ? 'Alış' : 'Satış'} İşlemini Güncelle`}
                 variant={editingTransaction.type === 'buy' ? 'success' : 'danger'}
                 onPress={() => handleSubmit(editingTransaction.type)}
               />
@@ -1149,7 +1139,8 @@ export default function TransactionScreen({ route, navigation }) {
                   const quantityNum = parseFloat(quantity);
                   const priceNum = parseFloat(unitPrice);
                   const total = (!isNaN(quantityNum) && !isNaN(priceNum)) ? (quantityNum * priceNum) : null;
-                  const totalLabel = total ? `${total.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}` : null;
+                  const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
+                  const totalLabel = total ? `${currencySymbol}${total.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : null;
 
                   const quickValid = !!mainCategory && !!assetName.trim() && quantityNum > 0 && priceNum > 0;
 
@@ -1171,19 +1162,25 @@ export default function TransactionScreen({ route, navigation }) {
                   return (
                     <View style={[styles.actionButtonsGroup, styles.actionButtonsGroupHeight]}>
                       <ActionButton
-                        label="📈 Alış Yap"
+                        label="  Alış"
                         variant="success"
                         onPress={handleBuy}
                         disabled={!quickValid}
                         subtitle={totalLabel}
+                        subtitleAlign="pill"
+                        leftIcon={<BuyIcon color={COLORS.white} />}
+                        textStyle={{ fontSize: 16 }}
                         style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
                       />
                       <ActionButton
-                        label="📉 Satış Yap"
+                        label="  Satış"
                         variant="danger"
                         onPress={handleSell}
                         disabled={sellDisabled}
                         subtitle={totalLabel}
+                        subtitleAlign="pill"
+                        leftIcon={<SellIcon color={COLORS.white} />}
+                        textStyle={{ fontSize: 16 }}
                         style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
                       />
                     </View>
@@ -1230,7 +1227,7 @@ export default function TransactionScreen({ route, navigation }) {
           <View style={styles.modalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{isEditingSubCategory ? '✏️ Alt Kategori Düzenle' : '✨ Yeni Alt Kategori'}</Text>
+              <Text style={styles.modalTitle}>{isEditingSubCategory ? 'Alt Kategori Düzenle' : 'Yeni Alt Kategori'}</Text>
               <TouchableOpacity 
                 onPress={() => {
                   setShowSubCategoryModal(false);
@@ -1520,12 +1517,12 @@ const styles = StyleSheet.create({
   },
   actionButtonsGroup: {
     flexDirection: 'row',
-    borderRadius: 0,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     width: '100%'
   },
   actionButtonsGroupHeight: {
-    height: 52,
+    height: 56,
   },
   categoryButtons: {
     flexDirection: 'row',
@@ -1605,29 +1602,48 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   totalContainer: {
-    backgroundColor: COLORS.lightGray,
-    padding: SCREEN_WIDTH * 0.04, // Responsive padding
+    backgroundColor: COLORS.white,
+    padding: SCREEN_WIDTH * 0.04,
     borderRadius: 12,
-    marginBottom: SCREEN_HEIGHT * 0.02, // Alt kısımdan boşluk
+    marginBottom: SCREEN_HEIGHT * 0.02,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
   totalLabel: {
-    fontSize: SCREEN_WIDTH * 0.038, // Responsive font
-    color: COLORS.text,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: SCREEN_WIDTH * 0.032,
+    color: COLORS.mediumGray,
+    fontWeight: '600',
+    marginBottom: 6,
   },
   totalHint: {
-    fontSize: SCREEN_WIDTH * 0.03, // Responsive font
+    fontSize: SCREEN_WIDTH * 0.03,
     color: COLORS.mediumGray,
     fontWeight: '400',
   },
   totalValue: {
-    fontSize: SCREEN_WIDTH * 0.06, // Responsive font
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    fontSize: SCREEN_WIDTH * 0.07,
+    fontWeight: '800',
+    color: COLORS.darkBlue,
+  },
+  totalValueCurrency: {
+    fontSize: SCREEN_WIDTH * 0.032,
+    fontWeight: '700',
+    color: COLORS.darkBlue,
+    opacity: 0.8,
+    marginRight: 6,
+  },
+  totalValueNumber: {
+    fontSize: SCREEN_WIDTH * 0.07,
+    fontWeight: '800',
+    color: COLORS.darkBlue,
   },
   // Dropdown Styles
   dropdown: {

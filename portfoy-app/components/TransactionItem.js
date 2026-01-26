@@ -80,9 +80,10 @@ export default function TransactionItem({ transaction, onEdit, onDelete }) {
           </Text>
         </View>
         <View style={styles.bottomRow}>
-          <Text style={styles.transactionType}>
-            {isBuy ? '📈 Alış' : '📉 Satış'}
-          </Text>
+          <View style={[styles.typeBadge, isBuy ? styles.typeBuy : styles.typeSell]}>
+            {isBuy ? <TrendingUp size={12} color={COLORS.white} /> : <TrendingDown size={12} color={COLORS.white} />}
+            <Text style={styles.typeBadgeText}>{isBuy ? 'Alış' : 'Satış'}</Text>
+          </View>
           <Text style={styles.separator}>•</Text>
           <Text style={styles.quantity}>
             {formattedQuantity} adet
@@ -147,6 +148,25 @@ const styles = StyleSheet.create({
   },
   iconSell: {
     backgroundColor: '#FEE2E2',
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  typeBuy: {
+    backgroundColor: COLORS.profit,
+  },
+  typeSell: {
+    backgroundColor: COLORS.loss,
+  },
+  typeBadgeText: {
+    marginLeft: 6,
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: '700',
   },
   content: {
     flex: 1,
