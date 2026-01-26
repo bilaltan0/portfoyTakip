@@ -46,7 +46,7 @@
         "projectId": "63f32f4e-ecd4-49ac-97d7-aa56f58a62eb"
       }
       ,
-      "enableTestAds": true
+      "enableTestAds": false
     }
   }
 }
