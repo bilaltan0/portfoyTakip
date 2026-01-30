@@ -4,10 +4,10 @@
     "slug": "portfoymate",
   "version": "1.0.12",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+  "icon": "./assets/PortfoyMate_Icon_512.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/PortfoyMate_Icon_512.png",
       "resizeMode": "contain",
       "backgroundColor": "#0891B2"
     },
@@ -19,13 +19,13 @@
       "package": "com.bilaltan.portfoyapp",
   "versionCode": 22,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+  "foregroundImage": "./assets/PortfoyMate_Icon_512.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/PortfoyMate_Icon_512.png"
     },
     "plugins": [
       [
