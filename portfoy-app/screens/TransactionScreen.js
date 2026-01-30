@@ -20,7 +20,8 @@ import {
   Animated,
   Modal
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InputAccessoryView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, PREDEFINED_ASSETS, CURRENCY_SYMBOLS } from '../constants/theme';
@@ -109,9 +110,10 @@ export default function TransactionScreen({ route, navigation }) {
   const [toastType, setToastType] = useState('success'); // 'success' or 'error'
   const toastAnim = useRef(new Animated.Value(0)).current;
 
-  // Fixed buttons bottom inset — when keyboard opens we lift the buttons
-  // above the keyboard; when keyboard closes keep a small visible gap.
-  const [fixedButtonBottomInset, setFixedButtonBottomInset] = useState(12);
+  // Animated keyboard-aware footer
+  const insets = useSafeAreaInsets();
+  const keyboardAnim = useRef(new Animated.Value(12 + (insets.bottom || 0))).current;
+  const INPUT_ACC_VIEW_ID = 'transactionAccessory';
   
   // Preselected asset kontrolü için ref
   const isPreselectingRef = React.useRef(false);
@@ -443,21 +445,42 @@ export default function TransactionScreen({ route, navigation }) {
   // keyboard when it opens so their position matches the 'keyboard open'
   // layout the user prefers.
   useEffect(() => {
-    const onShow = (e) => {
-      const h = e?.endCoordinates?.height || 300;
-      // Add a small margin so buttons don't touch the keyboard directly
-      setFixedButtonBottomInset(h + 8);
-    };
-    const onHide = () => setFixedButtonBottomInset(12);
+    const isIOS = Platform.OS === 'ios';
+    const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSub = Keyboard.addListener('keyboardDidShow', onShow);
-    const hideSub = Keyboard.addListener('keyboardDidHide', onHide);
+    const onShow = (e) => {
+      const height = e?.endCoordinates?.height || 300;
+      const duration = e?.duration || 250;
+      const toValue = height + 8 + (insets.bottom || 0);
+      Animated.timing(keyboardAnim, {
+        toValue,
+        duration,
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const onHide = (e) => {
+      const duration = e?.duration || 250;
+      const toValue = 12 + (insets.bottom || 0);
+      Animated.timing(keyboardAnim, {
+        toValue,
+        duration,
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    // initialize
+    onHide({ duration: 0 });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [insets.bottom, keyboardAnim]);
 
   // Ana kategoriler
   const mainCategories = Object.keys(categories);
@@ -921,7 +944,8 @@ export default function TransactionScreen({ route, navigation }) {
                     placeholder="Varlık ara... (Altın, BTC, BIST, Dolar)"
                     placeholderTextColor={COLORS.mediumGray}
                     value={assetName}
-                    onChangeText={handleAssetSearch}
+                      onChangeText={handleAssetSearch}
+                      inputAccessoryViewID={INPUT_ACC_VIEW_ID}
                     onFocus={() => {
                       // Eğer seçili varlık yoksa dropdown göster
                       if (!selectedAssetInfo) setShowDropdown(true);
@@ -1033,6 +1057,7 @@ export default function TransactionScreen({ route, navigation }) {
                   placeholder="Adet"
                   placeholderTextColor={COLORS.mediumGray}
                   value={quantity}
+                  inputAccessoryViewID={INPUT_ACC_VIEW_ID}
                   onChangeText={(text) => {
                     // Sadece rakam ve nokta kabul et
                     const sanitized = text.replace(/[^0-9.]/g, '');
@@ -1062,6 +1087,7 @@ export default function TransactionScreen({ route, navigation }) {
                   placeholder="Fiyat girin"
                   placeholderTextColor={COLORS.mediumGray}
                   value={unitPrice}
+                  inputAccessoryViewID={INPUT_ACC_VIEW_ID}
                   onChangeText={(text) => {
                     // Sadece rakam ve nokta kabul et
                     const sanitized = text.replace(/[^0-9.]/g, '');
@@ -1130,6 +1156,7 @@ export default function TransactionScreen({ route, navigation }) {
               placeholder="Detay ekle..."
               placeholderTextColor={COLORS.mediumGray}
               value={note}
+              inputAccessoryViewID={INPUT_ACC_VIEW_ID}
               onChangeText={setNote}
               multiline
               numberOfLines={2}
@@ -1143,76 +1170,143 @@ export default function TransactionScreen({ route, navigation }) {
 
 
           {/* Sabit butonların arkasında kalmaması için boşluk */}
-          <View style={{ height: 120 }} />
+          {/* Placeholder so content doesn't get hidden behind the footer/accessory */}
+          <View style={{ height: 56 + (insets.bottom || 0) + 24 }} />
         </ScrollView>
         </TouchableWithoutFeedback>
 
-  {/* Fixed Action Buttons */}
-  <View style={[styles.fixedButtonContainer, { bottom: fixedButtonBottomInset }] }>
-          <View style={styles.actionButtonsRow}>
-            {isEditMode ? (
-              // Edit mode: Sadece Güncelle butonu
-              <ActionButton
-                label={`${editingTransaction.type === 'buy' ? 'Alış' : 'Satış'} İşlemini Güncelle`}
-                variant={editingTransaction.type === 'buy' ? 'success' : 'danger'}
-                onPress={() => handleSubmit(editingTransaction.type)}
-              />
-            ) : (
-              // Normal mode: Alış ve Satış butonları (modernized)
-              (() => {
-                  const quantityNum = parseFloat(quantity);
-                  const priceNum = parseFloat(unitPrice);
-                  const total = (!isNaN(quantityNum) && !isNaN(priceNum)) ? (quantityNum * priceNum) : null;
-                  const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
-                  const totalLabel = total ? `${currencySymbol}${total.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : null;
+  {/* Fixed Action Buttons - iOS: InputAccessoryView (keyboard docked), Android/others: animated absolute footer */}
+  {Platform.OS === 'ios' ? (
+    <InputAccessoryView nativeID={INPUT_ACC_VIEW_ID}>
+      <View style={[styles.fixedButtonContainerIOS]}>
+        <View style={styles.actionButtonsRow}>
+          {isEditMode ? (
+            <ActionButton
+              label={`${editingTransaction.type === 'buy' ? 'Alış' : 'Satış'} İşlemini Güncelle`}
+              variant={editingTransaction.type === 'buy' ? 'success' : 'danger'}
+              onPress={() => handleSubmit(editingTransaction.type)}
+            />
+          ) : (
+            (() => {
+                const quantityNum = parseFloat(quantity);
+                const priceNum = parseFloat(unitPrice);
+                const total = (!isNaN(quantityNum) && !isNaN(priceNum)) ? (quantityNum * priceNum) : null;
+                const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
+                const totalLabel = total ? `${currencySymbol}${total.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : null;
 
-                  const quickValid = !!mainCategory && !!assetName.trim() && quantityNum > 0 && priceNum > 0;
+                const quickValid = !!mainCategory && !!assetName.trim() && quantityNum > 0 && priceNum > 0;
 
-                  // Calculate holdings for sell validation
-                  let totalOwned = 0;
-                  const transactions = activePortfolio?.transactions || [];
-                  const assetKey = `${mainCategory}_${assetName.trim()}`;
-                  transactions.forEach(transaction => {
-                    const txAssetKey = `${transaction.mainCategory}_${transaction.assetName}`;
-                    if (txAssetKey === assetKey) {
-                      if (transaction.type === 'buy') totalOwned += transaction.quantity;
-                      else if (transaction.type === 'sell') totalOwned -= transaction.quantity;
-                    }
-                  });
+                // Calculate holdings for sell validation
+                let totalOwned = 0;
+                const transactions = activePortfolio?.transactions || [];
+                const assetKey = `${mainCategory}_${assetName.trim()}`;
+                transactions.forEach(transaction => {
+                  const txAssetKey = `${transaction.mainCategory}_${transaction.assetName}`;
+                  if (txAssetKey === assetKey) {
+                    if (transaction.type === 'buy') totalOwned += transaction.quantity;
+                    else if (transaction.type === 'sell') totalOwned -= transaction.quantity;
+                  }
+                });
 
-                  const sellQuantity = parseFloat(quantity) || 0;
-                  const sellDisabled = !quickValid || sellQuantity > totalOwned;
+                const sellQuantity = parseFloat(quantity) || 0;
+                const sellDisabled = !quickValid || sellQuantity > totalOwned;
 
-                  return (
-                    <View style={[styles.actionButtonsGroup, styles.actionButtonsGroupHeight]}>
-                      <ActionButton
-                        label="  Alış"
-                        variant="success"
-                        onPress={handleBuy}
-                        disabled={!quickValid}
-                        subtitle={totalLabel}
-                        subtitleAlign="pill"
-                        leftIcon={<BuyIcon color={COLORS.white} />}
-                        textStyle={{ fontSize: 16 }}
-                        style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
-                      />
-                      <ActionButton
-                        label="  Satış"
-                        variant="danger"
-                        onPress={handleSell}
-                        disabled={sellDisabled}
-                        subtitle={totalLabel}
-                        subtitleAlign="pill"
-                        leftIcon={<SellIcon color={COLORS.white} />}
-                        textStyle={{ fontSize: 16 }}
-                        style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
-                      />
-                    </View>
-                  );
-                })()
-            )}
-          </View>
+                return (
+                  <View style={[styles.actionButtonsGroup, styles.actionButtonsGroupHeight]}>
+                    <ActionButton
+                      label="  Alış"
+                      variant="success"
+                      onPress={handleBuy}
+                      disabled={!quickValid}
+                      subtitle={totalLabel}
+                      subtitleAlign="pill"
+                      leftIcon={<BuyIcon color={COLORS.white} />}
+                      textStyle={{ fontSize: 16 }}
+                      style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
+                    />
+                    <ActionButton
+                      label="  Satış"
+                      variant="danger"
+                      onPress={handleSell}
+                      disabled={sellDisabled}
+                      subtitle={totalLabel}
+                      subtitleAlign="pill"
+                      leftIcon={<SellIcon color={COLORS.white} />}
+                      textStyle={{ fontSize: 16 }}
+                      style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
+                    />
+                  </View>
+                );
+              })()
+          )}
         </View>
+      </View>
+    </InputAccessoryView>
+  ) : (
+    <Animated.View style={[styles.fixedButtonContainer, { bottom: keyboardAnim }]}>
+      <View style={styles.actionButtonsRow}>
+        {isEditMode ? (
+          <ActionButton
+            label={`${editingTransaction.type === 'buy' ? 'Alış' : 'Satış'} İşlemini Güncelle`}
+            variant={editingTransaction.type === 'buy' ? 'success' : 'danger'}
+            onPress={() => handleSubmit(editingTransaction.type)}
+          />
+        ) : (
+          (() => {
+              const quantityNum = parseFloat(quantity);
+              const priceNum = parseFloat(unitPrice);
+              const total = (!isNaN(quantityNum) && !isNaN(priceNum)) ? (quantityNum * priceNum) : null;
+              const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
+              const totalLabel = total ? `${currencySymbol}${total.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : null;
+
+              const quickValid = !!mainCategory && !!assetName.trim() && quantityNum > 0 && priceNum > 0;
+
+              // Calculate holdings for sell validation
+              let totalOwned = 0;
+              const transactions = activePortfolio?.transactions || [];
+              const assetKey = `${mainCategory}_${assetName.trim()}`;
+              transactions.forEach(transaction => {
+                const txAssetKey = `${transaction.mainCategory}_${transaction.assetName}`;
+                if (txAssetKey === assetKey) {
+                  if (transaction.type === 'buy') totalOwned += transaction.quantity;
+                  else if (transaction.type === 'sell') totalOwned -= transaction.quantity;
+                }
+              });
+
+              const sellQuantity = parseFloat(quantity) || 0;
+              const sellDisabled = !quickValid || sellQuantity > totalOwned;
+
+              return (
+                <View style={[styles.actionButtonsGroup, styles.actionButtonsGroupHeight]}>
+                  <ActionButton
+                    label="  Alış"
+                    variant="success"
+                    onPress={handleBuy}
+                    disabled={!quickValid}
+                    subtitle={totalLabel}
+                    subtitleAlign="pill"
+                    leftIcon={<BuyIcon color={COLORS.white} />}
+                    textStyle={{ fontSize: 16 }}
+                    style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
+                  />
+                  <ActionButton
+                    label="  Satış"
+                    variant="danger"
+                    onPress={handleSell}
+                    disabled={sellDisabled}
+                    subtitle={totalLabel}
+                    subtitleAlign="pill"
+                    leftIcon={<SellIcon color={COLORS.white} />}
+                    textStyle={{ fontSize: 16 }}
+                    style={{ borderRadius: 0, height: '100%', paddingVertical: 0 }}
+                  />
+                </View>
+              );
+            })()
+        )}
+      </View>
+    </Animated.View>
+  )}
       </KeyboardAvoidingView>
       
       {/* Toast Notification */}
@@ -1518,6 +1612,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 10,
+  },
+  fixedButtonContainerIOS: {
+    width: '100%',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 6,
   },
   scrollContent: {
     padding: SCREEN_WIDTH * 0.05, // Responsive padding (%5 of screen width)
