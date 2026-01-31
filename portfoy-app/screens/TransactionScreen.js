@@ -441,46 +441,8 @@ export default function TransactionScreen({ route, navigation }) {
     };
   }, []);
 
-  // Keep fixed action buttons slightly raised and move them above the
-  // keyboard when it opens so their position matches the 'keyboard open'
-  // layout the user prefers.
-  useEffect(() => {
-    const isIOS = Platform.OS === 'ios';
-    const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const onShow = (e) => {
-      const height = e?.endCoordinates?.height || 300;
-      const duration = e?.duration || 250;
-      const toValue = height + 8 + (insets.bottom || 0);
-      Animated.timing(keyboardAnim, {
-        toValue,
-        duration,
-        useNativeDriver: false,
-      }).start();
-    };
-
-    const onHide = (e) => {
-      const duration = e?.duration || 250;
-      const toValue = 12 + (insets.bottom || 0);
-      Animated.timing(keyboardAnim, {
-        toValue,
-        duration,
-        useNativeDriver: false,
-      }).start();
-    };
-
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
-
-    // initialize
-    onHide({ duration: 0 });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [insets.bottom, keyboardAnim]);
+  // Butonlar artık sabit - klavye açılınca hareket etmeyecek
+  // Tab bar'ın hemen üstünde kalacaklar
 
   // Ana kategoriler
   const mainCategories = Object.keys(categories);
@@ -1242,7 +1204,7 @@ export default function TransactionScreen({ route, navigation }) {
           </View>
         </InputAccessoryView>
       ) : (
-        <Animated.View style={[styles.fixedButtonContainer, { bottom: keyboardAnim }]}>
+        <View style={styles.fixedButtonContainer}>
           <View style={styles.actionButtonsRow}>
             {isEditMode ? (
               <ActionButton
@@ -1304,7 +1266,7 @@ export default function TransactionScreen({ route, navigation }) {
               })()
             )}
           </View>
-        </Animated.View>
+        </View>
       )}
 
       {/* Toast Notification */}
@@ -1602,9 +1564,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: COLORS.white,
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    borderTopWidth: 0,
     borderTopColor: COLORS.lightGray,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
