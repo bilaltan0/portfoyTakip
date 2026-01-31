@@ -1149,7 +1149,7 @@ export default function DashboardScreen({ navigation }) {
           ref={cardsScrollRef}
           onScroll={handleCardsScroll}
           scrollEventThrottle={16}
-          contentContainerStyle={{ paddingLeft: (selectedSubCategory === '__UNCATEGORIZED__') ? 28 : 16, paddingRight: 16, alignItems: 'flex-start' }}
+          contentContainerStyle={{ paddingLeft: (selectedSubCategory === '__UNCATEGORIZED__') ? 28 : 16, paddingRight: 16, paddingVertical: 8, alignItems: 'flex-start' }}
         >
           {selectedCategory ? (
             // Kategori seçiliyse: 3 durum olabilir
