@@ -2,7 +2,7 @@
   "expo": {
     "name": "PortföyMate",
     "slug": "portfoymate",
-    "version": "1.0.14",
+    "version": "1.0.18",
     "orientation": "portrait",
     "icon": "./assets/PortfoyMate_Icon_512.png",
     "userInterfaceStyle": "light",
@@ -17,12 +17,11 @@
     },
     "android": {
       "package": "com.bilaltan.portfoyapp",
-      "versionCode": 24,
+      "versionCode": 28,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/PortfoyMate_Icon_512.png",
+  "foregroundImage": "./assets/PortfoyMate_Icon_512.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "web": {
       "favicon": "./assets/PortfoyMate_Icon_512.png"
@@ -32,6 +31,9 @@
         "expo-build-properties",
         {
           "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
             "kotlinVersion": "2.0.21"
           }
         }
