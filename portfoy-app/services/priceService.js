@@ -550,6 +550,212 @@ const setCachedPrice = async (assetName, priceObject) => {
   }
 };
 
+// ============================================
+// TARİHSEL FİYAT ÇEKME FONKSİYONLARI
+// ============================================
+
+const HIST_CACHE_KEY_PREFIX = 'hist_price_';
+
+/**
+ * Tarihsel fiyat cache'i - tarihsel fiyatlar değişmez, uzun süre cache'lenir
+ */
+const getHistoricalCachedPrice = async (cacheKey) => {
+  try {
+    const cached = await AsyncStorage.getItem(`${HIST_CACHE_KEY_PREFIX}${cacheKey}`);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (error) {
+    console.error('Historical cache read error:', error);
+  }
+  return null;
+};
+
+const setHistoricalCachedPrice = async (cacheKey, priceData) => {
+  try {
+    await AsyncStorage.setItem(
+      `${HIST_CACHE_KEY_PREFIX}${cacheKey}`,
+      JSON.stringify(priceData)
+    );
+  } catch (error) {
+    console.error('Historical cache write error:', error);
+  }
+};
+
+/**
+ * Binance API'den tarihsel kripto fiyatı çeker (klines/candlestick)
+ * @param {string} symbolOrName - 'BTC', 'ETH' gibi
+ * @param {Date} targetDate - Hedef tarih
+ * @returns {Promise<number>} USD fiyatı
+ */
+const fetchHistoricalBinancePrice = async (symbolOrName, targetDate) => {
+  try {
+    let baseSymbol = symbolOrName.toUpperCase().trim();
+    
+    const coinGeckoToBinanceSymbol = {
+      'ETHEREUM': 'ETH', 'BITCOIN': 'BTC', 'BINANCECOIN': 'BNB',
+      'RIPPLE': 'XRP', 'CARDANO': 'ADA', 'DOGECOIN': 'DOGE',
+      'SOLANA': 'SOL', 'POLKADOT': 'DOT', 'AVALANCHE-2': 'AVAX', 'TRON': 'TRX',
+    };
+    
+    baseSymbol = coinGeckoToBinanceSymbol[baseSymbol] || baseSymbol;
+    const binanceSymbol = `${baseSymbol}USDT`;
+    
+    // Klines API: 1 günlük mum verisi
+    const startTime = targetDate.getTime();
+    const endTime = startTime + 24 * 60 * 60 * 1000; // +1 gün
+    
+    console.log(`📊 Binance Historical: ${binanceSymbol} @ ${targetDate.toISOString().split('T')[0]}`);
+    
+    const response = await fetch(
+      `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&startTime=${startTime}&endTime=${endTime}&limit=1`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Binance klines API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.length === 0) {
+      throw new Error(`No historical data for ${binanceSymbol} at ${targetDate.toISOString()}`);
+    }
+    
+    // Kline format: [openTime, open, high, low, close, volume, ...]
+    // close fiyatını kullan (index 4)
+    const closePrice = parseFloat(data[0][4]);
+    
+    console.log(`✅ Historical ${binanceSymbol}: ${closePrice} USD @ ${targetDate.toISOString().split('T')[0]}`);
+    
+    return closePrice;
+  } catch (error) {
+    console.error('Binance historical fetch error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Yahoo Finance'dan tarihsel hisse/altın fiyatı çeker
+ * @param {string} symbol - 'AKBNK.IS', 'GC=F' gibi
+ * @param {Date} targetDate - Hedef tarih
+ * @returns {Promise<number>} Fiyat
+ */
+const fetchHistoricalYahooPrice = async (symbol, targetDate) => {
+  try {
+    // period1 ve period2: Unix timestamp (saniye)
+    const period1 = Math.floor(targetDate.getTime() / 1000);
+    const period2 = period1 + 86400 * 3; // +3 gün (hafta sonu kapalıysa komşu gün)
+    
+    console.log(`📊 Yahoo Historical: ${symbol} @ ${targetDate.toISOString().split('T')[0]}`);
+    
+    const response = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${period1}&period2=${period2}&interval=1d`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Yahoo Finance historical API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const quotes = data.chart?.result?.[0]?.indicators?.quote?.[0];
+    const closes = quotes?.close;
+    
+    if (!closes || closes.length === 0) {
+      throw new Error(`No historical data for ${symbol}`);
+    }
+    
+    // İlk geçerli (null olmayan) close fiyatını al
+    const validClose = closes.find(c => c != null && c > 0);
+    
+    if (!validClose) {
+      throw new Error(`No valid close price for ${symbol}`);
+    }
+    
+    console.log(`✅ Historical ${symbol}: ${validClose} @ ${targetDate.toISOString().split('T')[0]}`);
+    
+    return validClose;
+  } catch (error) {
+    console.error('Yahoo historical fetch error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ana tarihsel fiyat çekme fonksiyonu
+ * @param {string} assetName - Varlık adı
+ * @param {object} assetInfo - Varlık bilgisi (provider, symbol, vb.)
+ * @param {Date} targetDate - Hedef tarih
+ * @returns {Promise<object>} { price, currency, date }
+ */
+export const fetchHistoricalAssetPrice = async (assetName, assetInfo, targetDate) => {
+  const dateStr = targetDate.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+  const cacheKey = `${assetName}_${dateStr}`;
+  
+  // Cache kontrolü (tarihsel fiyatlar değişmez)
+  const cached = await getHistoricalCachedPrice(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
+  const mapping = detectAssetProvider(assetName, assetInfo);
+  
+  if (!mapping) {
+    throw new Error(`No mapping for historical price: ${assetName}`);
+  }
+  
+  let price = 0;
+  let currency = mapping.currency;
+  
+  try {
+    switch (mapping.provider) {
+      case 'coingecko': {
+        // Crypto: Binance klines API
+        const searchTerm = mapping.symbol || mapping.id;
+        price = await fetchHistoricalBinancePrice(searchTerm, targetDate);
+        currency = 'USD';
+        break;
+      }
+      
+      case 'yahoo': {
+        // Borsa / Altın: Yahoo Finance chart
+        price = await fetchHistoricalYahooPrice(mapping.symbol || mapping.id, targetDate);
+        break;
+      }
+      
+      case 'metals': {
+        // Altın: Yahoo Finance GC=F üzerinden tarihsel
+        const goldOuncePrice = await fetchHistoricalYahooPrice('GC=F', targetDate);
+        // Bu ham ons fiyatı (USD), dönüşüm periodCalculations'da yapılacak
+        price = goldOuncePrice;
+        currency = 'USD';
+        break;
+      }
+      
+      case 'tcmb': {
+        // Döviz: Tarihsel kur verisi alamayacağız, güncel kuru kullan
+        const rateData = await fetchTCMBRate(mapping.id);
+        price = rateData.try;
+        currency = 'TRY';
+        break;
+      }
+      
+      default:
+        throw new Error(`Unknown provider for historical: ${mapping.provider}`);
+    }
+  } catch (error) {
+    console.warn(`⚠️ Historical price failed for ${assetName} @ ${dateStr}:`, error.message);
+    // Tarihsel fiyat çekilemezse null dön
+    return { price: null, currency, date: dateStr, error: true };
+  }
+  
+  const result = { price, currency, date: dateStr };
+  
+  // Cache'e kaydet (tarihsel fiyatlar DEĞİŞMEZ)
+  await setHistoricalCachedPrice(cacheKey, result);
+  
+  return result;
+};
+
 /**
  * Tüm cache'i temizle
  */

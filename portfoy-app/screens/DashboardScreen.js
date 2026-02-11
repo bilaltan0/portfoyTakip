@@ -68,6 +68,7 @@ import { calculatePeriodProfitLoss } from '../utils/periodCalculations';
 
 // Hooks
 import { useAssetPrices } from '../hooks/useAssetPrices';
+import { useHistoricalPrices } from '../hooks/useHistoricalPrices';
 
 // Services
 import { getExchangeRates, convertToTRY, convertFromTRY } from '../services/exchangeRateService';
@@ -288,6 +289,9 @@ export default function DashboardScreen({ navigation }) {
   // Anlık fiyatları çek
   const { prices, loading: pricesLoading, error: pricesError, refresh: refreshPricesOnly } = useAssetPrices(assetsForPricing);
 
+  // Tarihsel fiyatları çek (dönem bazlı kar/zarar için)
+  const { historicalPrices, loading: historicalLoading } = useHistoricalPrices(assetsForPricing, selectedPeriod);
+
   // Refresh fonksiyonu: Cache temizle, döviz kurlarını ve fiyatları yenile
   const refreshPrices = async () => {
     try {
@@ -349,10 +353,11 @@ export default function DashboardScreen({ navigation }) {
     // Toplam portföy değerini güncelle (ANLIK FİYATA GÖRE - dönemden bağımsız)
     setTotalPortfolioValueInTRY(currentValueInTRY);
 
-    // 2. Dönem bazlı kar/zarar hesapla (periodCalculations kullanarak)
+    // 2. Dönem bazlı kar/zarar hesapla (periodCalculations + tarihsel fiyatlar)
     const periodResult = calculatePeriodProfitLoss(
       transactions,
       prices,
+      historicalPrices,
       selectedPeriod,
       exchangeRates
     );
@@ -365,7 +370,7 @@ export default function DashboardScreen({ navigation }) {
     });
 
     console.log(`📈 KAR/ZARAR [${selectedPeriod}]: ${periodResult.profitLoss > 0 ? '+' : ''}${periodResult.profitLoss.toFixed(2)} TRY (${periodResult.profitLossPercentage > 0 ? '+' : ''}${periodResult.profitLossPercentage.toFixed(2)}%)`);
-  }, [prices, assetsForPricing, displayCurrency, transactions, exchangeRates, selectedPeriod]);
+  }, [prices, historicalPrices, assetsForPricing, displayCurrency, transactions, exchangeRates, selectedPeriod]);
 
   // Varlık dağılımı verilerini ANLIK FİYATLARA GÖRE hesapla
   const getCategoryValues = () => {
