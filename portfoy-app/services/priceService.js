@@ -629,7 +629,7 @@ const fetchHistoricalBinancePrice = async (symbolOrName, targetDate) => {
     
     return closePrice;
   } catch (error) {
-    console.error('Binance historical fetch error:', error);
+    console.warn('Binance historical fetch error:', error.message);
     throw error;
   }
 };
@@ -675,7 +675,7 @@ const fetchHistoricalYahooPrice = async (symbol, targetDate) => {
     
     return validClose;
   } catch (error) {
-    console.error('Yahoo historical fetch error:', error);
+    console.warn('Yahoo historical fetch error:', error.message);
     throw error;
   }
 };

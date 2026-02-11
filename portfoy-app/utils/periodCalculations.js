@@ -252,7 +252,7 @@ export const PERIOD_LABELS = {
   '1W': '1H',
   '1M': '1A',
   '1Y': '1Y',
-  'ALL': 'TOP',
+  'ALL': 'ALL',
 };
 
 /**

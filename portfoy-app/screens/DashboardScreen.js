@@ -354,6 +354,11 @@ export default function DashboardScreen({ navigation }) {
     setTotalPortfolioValueInTRY(currentValueInTRY);
 
     // 2. Dönem bazlı kar/zarar hesapla (periodCalculations + tarihsel fiyatlar)
+    // ALL dışı dönemlerde tarihsel fiyatlar yüklenene kadar eski değeri koru (yeşil→kırmızı flash önleme)
+    if (selectedPeriod !== 'ALL' && historicalLoading) {
+      return; // Tarihsel fiyatlar henüz yükleniyor, eski P/L değerini koru
+    }
+
     const periodResult = calculatePeriodProfitLoss(
       transactions,
       prices,
