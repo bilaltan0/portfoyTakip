@@ -1,20 +1,28 @@
 /**
  * PortfolioValueHeader.js - Portföy Değer Başlığı
  * 
- * Toplam portföy değeri + toplam kar/zarar göstergesi
+ * Toplam portföy değeri + dönem bazlı kar/zarar göstergesi
  * Binance/Coinbase tarzı profesyonel tasarım
+ * 
+ * Dönem seçici: 1G | 1H | 1A | 1Y | TOP
  */
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants/theme';
 import { EyeIcon, EyeOffIcon } from './icons';
+import { PERIOD_LABELS } from '../utils/periodCalculations';
+
+// Sıralı dönem listesi (UI'da bu sırada gösterilecek)
+const PERIODS = ['1D', '1W', '1M', '1Y', 'ALL'];
 
 const PortfolioValueHeader = ({ 
   totalValue, 
   currencySymbol = '₺',
   profitLoss = 0,
   profitLossPercentage = 0,
+  selectedPeriod = 'ALL',
+  onPeriodChange,
   isBalanceHidden = false,
   onToggleBalance
 }) => {
@@ -51,9 +59,6 @@ const PortfolioValueHeader = ({
         {/* Sağ: Kar/Zarar Badge */}
         <View style={styles.profitSection}>
           <View style={[styles.profitBadge, { backgroundColor: `${profitColor}15` }]}>
-            <View style={styles.periodIndicator}>
-              <Text style={styles.periodLabel}>TOPLAM</Text>
-            </View>
             <Text style={[styles.profitPercentage, { color: profitColor }]}>
               {profitIcon} {Math.abs(profitLossPercentage).toFixed(2)}%
             </Text>
@@ -67,19 +72,31 @@ const PortfolioValueHeader = ({
         </View>
       </View>
 
-      {/* Mini Trend Indicator */}
-      <View style={styles.trendContainer}>
-        <View style={[styles.trendLine, { backgroundColor: profitColor }]}>
-          {/* Basit trend göstergesi - gelecekte mini chart eklenebilir */}
-          <View style={[
-            styles.trendDot, 
-            { 
-              backgroundColor: profitColor,
-              right: isProfit ? 0 : undefined,
-              left: !isProfit ? 0 : undefined
-            }
-          ]} />
-        </View>
+      {/* Dönem Seçici Tab Bar */}
+      <View style={styles.periodContainer}>
+        {PERIODS.map((period) => {
+          const isSelected = period === selectedPeriod;
+          const label = PERIOD_LABELS[period] || period;
+          
+          return (
+            <TouchableOpacity
+              key={period}
+              style={[
+                styles.periodTab,
+                isSelected && styles.periodTabSelected,
+              ]}
+              onPress={() => onPeriodChange && onPeriodChange(period)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.periodTabText,
+                isSelected && styles.periodTabTextSelected,
+              ]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -90,7 +107,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   valueRow: {
     flexDirection: 'row',
@@ -122,15 +139,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     minWidth: 110,
   },
-  periodIndicator: {
-    marginBottom: 4,
-  },
-  periodLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.mediumGray,
-    letterSpacing: 0.5,
-  },
   profitPercentage: {
     fontSize: 18,
     fontWeight: '800',
@@ -140,25 +148,39 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  trendContainer: {
-    height: 4,
-    backgroundColor: `${COLORS.mediumGray}20`,
-    borderRadius: 2,
-    overflow: 'hidden',
+  // Dönem Seçici Stiller
+  periodContainer: {
+    flexDirection: 'row',
+    backgroundColor: `${COLORS.mediumGray}15`,
+    borderRadius: 10,
+    padding: 3,
+    gap: 2,
   },
-  trendLine: {
-    height: '100%',
-    width: '100%',
-    position: 'relative',
+  periodTab: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  trendDot: {
-    position: 'absolute',
-    top: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: COLORS.white,
+  periodTabSelected: {
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  periodTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.mediumGray,
+    letterSpacing: 0.3,
+  },
+  periodTabTextSelected: {
+    color: COLORS.text,
+    fontWeight: '700',
   },
   eyeButton: {
     padding: 4,

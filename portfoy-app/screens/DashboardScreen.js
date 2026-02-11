@@ -64,6 +64,7 @@ import AdBanner from '../components/AdBanner';
 
 // Services
 import { clearPriceCache } from '../services/priceService';
+import { calculatePeriodProfitLoss } from '../utils/periodCalculations';
 
 // Hooks
 import { useAssetPrices } from '../hooks/useAssetPrices';
@@ -102,6 +103,9 @@ export default function DashboardScreen({ navigation }) {
 
   // Gizlilik state (tutar gizleme/gösterme)
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
+
+  // Dönem seçimi (kar/zarar hesaplaması için)
+  const [selectedPeriod, setSelectedPeriod] = useState('ALL');
 
   // Döviz kurları state
   const [exchangeRates, setExchangeRates] = useState(EXCHANGE_RATES); // Fallback olarak sabit kurlar
@@ -310,7 +314,7 @@ export default function DashboardScreen({ navigation }) {
     console.log('💰 PRICES OBJESI:', JSON.stringify(prices, null, 2));
   }, [prices]);
 
-  // Kar/zarar VE toplam portföy değerini hesapla (ANLIK FİYATLARA GÖRE)
+  // Kar/zarar VE toplam portföy değerini hesapla (ANLIK FİYATLARA GÖRE + DÖNEM BAZLI)
   useEffect(() => {
     if (Object.keys(prices).length === 0 || assetsForPricing.length === 0) {
       // Eğer fiyat yoksa, sadece yatırım tutarını göster
@@ -325,48 +329,43 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
-    let totalInvestmentInTRY = 0;
+    // 1. Toplam portföy değerini hesapla (her zaman ALL - dönemden bağımsız)
     let currentValueInTRY = 0;
+    let totalInvestmentInTRY = 0;
 
     assetsForPricing.forEach(asset => {
-      // Toplam yatırım (maliyet)
       totalInvestmentInTRY += asset.totalCost;
 
-      // Güncel değer hesapla (ANLIK FİYAT KULLAN!)
       const priceData = prices[asset.name];
       if (priceData && priceData.price > 0) {
         const priceCurrency = priceData.currency || 'TRY';
-        // ✅ Dinamik döviz kurlarını kullan (USD/EUR/GBP → TRY)
         const currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
         currentValueInTRY += asset.quantity * currentPriceInTRY;
-
-        console.log(`📊 ${asset.name}: ${asset.quantity} × ${priceData.price} ${priceCurrency} (${exchangeRates[priceCurrency]} TRY) = ${asset.quantity * currentPriceInTRY} TRY`);
       } else {
-        // Fiyat yoksa maliyet fiyatını kullan (fallback)
         currentValueInTRY += asset.totalCost;
-        console.log(`⚠️ ${asset.name}: Fiyat yok, maliyet kullanıldı = ${asset.totalCost} TRY`);
       }
     });
 
-    console.log(`💰 TOPLAM: Maliyet=${totalInvestmentInTRY} TRY, Güncel Değer=${currentValueInTRY} TRY`);
-
-    // Toplam portföy değerini güncelle (ANLIK FİYATA GÖRE!)
+    // Toplam portföy değerini güncelle (ANLIK FİYATA GÖRE - dönemden bağımsız)
     setTotalPortfolioValueInTRY(currentValueInTRY);
 
-    const profitLossInTRY = currentValueInTRY - totalInvestmentInTRY;
-    const profitLossPerc = totalInvestmentInTRY > 0
-      ? (profitLossInTRY / totalInvestmentInTRY) * 100
-      : 0;
+    // 2. Dönem bazlı kar/zarar hesapla (periodCalculations kullanarak)
+    const periodResult = calculatePeriodProfitLoss(
+      transactions,
+      prices,
+      selectedPeriod,
+      exchangeRates
+    );
 
     setProfitLossData({
-      totalInvestment: convertCurrency(totalInvestmentInTRY),
-      currentValue: convertCurrency(currentValueInTRY),
-      profitLoss: convertCurrency(profitLossInTRY),
-      profitLossPercentage: profitLossPerc
+      totalInvestment: convertCurrency(periodResult.totalCost),
+      currentValue: convertCurrency(periodResult.currentValue),
+      profitLoss: convertCurrency(periodResult.profitLoss),
+      profitLossPercentage: periodResult.profitLossPercentage
     });
 
-    console.log(`📈 KAR/ZARAR: ${profitLossInTRY > 0 ? '+' : ''}${profitLossInTRY.toFixed(2)} TRY (${profitLossPerc > 0 ? '+' : ''}${profitLossPerc.toFixed(2)}%)`);
-  }, [prices, assetsForPricing, displayCurrency, transactions, exchangeRates]);
+    console.log(`📈 KAR/ZARAR [${selectedPeriod}]: ${periodResult.profitLoss > 0 ? '+' : ''}${periodResult.profitLoss.toFixed(2)} TRY (${periodResult.profitLossPercentage > 0 ? '+' : ''}${periodResult.profitLossPercentage.toFixed(2)}%)`);
+  }, [prices, assetsForPricing, displayCurrency, transactions, exchangeRates, selectedPeriod]);
 
   // Varlık dağılımı verilerini ANLIK FİYATLARA GÖRE hesapla
   const getCategoryValues = () => {
@@ -1067,6 +1066,8 @@ export default function DashboardScreen({ navigation }) {
           currencySymbol={currencySymbol}
           profitLoss={profitLossData.profitLoss}
           profitLossPercentage={profitLossData.profitLossPercentage}
+          selectedPeriod={selectedPeriod}
+          onPeriodChange={setSelectedPeriod}
           isBalanceHidden={isBalanceHidden}
           onToggleBalance={() => setIsBalanceHidden(!isBalanceHidden)}
         />
