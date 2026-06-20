@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.bilaltan.portfoyapp",
-      "versionCode": 32,
+      "versionCode": 33,
       "adaptiveIcon": {
   "foregroundImage": "./assets/PortfoyMate_Icon_512.png",
         "backgroundColor": "#ffffff"
