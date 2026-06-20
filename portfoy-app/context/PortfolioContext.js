@@ -42,6 +42,7 @@ const DEFAULT_CATEGORIES = {
   'Kripto': ['Bitcoin', 'Ethereum', 'Diğer'],
   'Borsa': ['Halka Arz', 'Normal Hisse', 'ETF'],
   'Döviz': ['USD', 'EUR', 'GBP'],
+  'Nakit': ['Türk Lirası (TRY)', 'Banka Hesabı'],
 };
 
 // Provider Component
@@ -369,6 +370,7 @@ export function PortfolioProvider({ children }) {
       'Kripto': 0,
       'Borsa': 0,
       'Döviz': 0,
+      'Nakit': 0,
       overall: 0,
     };
 
@@ -432,7 +434,7 @@ export function PortfolioProvider({ children }) {
     });
 
     // Overall = tüm kategorilerin toplamı
-    totals.overall = totals['Altın'] + totals['Kripto'] + totals['Borsa'] + totals['Döviz'];
+    totals.overall = totals['Altın'] + totals['Kripto'] + totals['Borsa'] + totals['Döviz'] + (totals['Nakit'] || 0);
 
     console.log('💰 Calculated Totals:', totals);
     return totals;
@@ -515,6 +517,7 @@ export function PortfolioProvider({ children }) {
     // Computed
     totalValue: calculateTotalValue(),
     groupedAssets: getGroupedAssets(),
+    portfolios // Need to pass portfolios directly if any screen wants to calculate grand total, or we can expose a function.
   };
 
   return (

@@ -41,13 +41,14 @@ export const STORAGE_KEYS = {
  * Kategori Sabitleri
  */
 export const CATEGORIES = {
-  MAIN: ['Altın', 'Kripto', 'Borsa', 'Döviz'],
+  MAIN: ['Altın', 'Kripto', 'Borsa', 'Döviz', 'Nakit'],
   
   SUB: {
     'Altın': ['Gram Altın', 'Çeyrek Altın', 'Külçe', 'Cumhuriyet Altını', 'Reşat Altını'],
     'Kripto': ['Bitcoin', 'Ethereum', 'Altcoin', 'Stablecoin', 'DeFi'],
     'Borsa': ['Halka Arz', 'Normal Hisse', 'ETF', 'Endeks', 'REIT'],
     'Döviz': ['USD', 'EUR', 'GBP', 'CHF', 'JPY'],
+    'Nakit': ['Türk Lirası (TRY)', 'Banka Hesabı', 'Nakit Kasa'],
   },
 };
 

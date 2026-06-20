@@ -53,6 +53,7 @@ export const COLORS = {
     crypto: '#6366F1',
     stock: '#10B981',
     forex: '#F59E0B',
+    nakit: '#1ABC9C',
   },
   
   // UI Renkleri
@@ -318,5 +319,10 @@ export const PREDEFINED_ASSETS = {
     'İngiliz Sterlini (GBP)',
     'İsviçre Frangı (CHF)',
     'Japon Yeni (JPY)'
+  ],
+  'Nakit': [
+    'Türk Lirası (TRY)',
+    'Banka Hesabı',
+    'Nakit Kasa'
   ]
 };

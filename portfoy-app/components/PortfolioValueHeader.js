@@ -24,7 +24,8 @@ const PortfolioValueHeader = ({
   selectedPeriod = 'ALL',
   onPeriodChange,
   isBalanceHidden = false,
-  onToggleBalance
+  onToggleBalance,
+  grandTotalValue = null
 }) => {
   const isProfit = profitLoss >= 0;
   const profitColor = isProfit ? COLORS.success : COLORS.danger;
@@ -54,6 +55,11 @@ const PortfolioValueHeader = ({
             </TouchableOpacity>
           </View>
           <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
+          {grandTotalValue !== null && grandTotalValue !== undefined && (
+            <Text style={styles.grandTotalLabel}>
+              Tüm Portföyler Toplamı: {isBalanceHidden ? '₺ *****' : `${currencySymbol}${Math.round(grandTotalValue).toLocaleString('tr-TR')}`}
+            </Text>
+          )}
         </View>
 
         {/* Sağ: Kar/Zarar Badge */}
@@ -128,6 +134,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.mediumGray,
     fontWeight: '500',
+  },
+  grandTotalLabel: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginTop: 4,
   },
   profitSection: {
     marginLeft: 12,

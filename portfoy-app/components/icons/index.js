@@ -33,3 +33,4 @@ export { default as GoldIcon } from './GoldIcon';
 export { default as BitcoinIcon } from './BitcoinIcon';
 export { default as StockIcon } from './StockIcon';
 export { default as CurrencyIcon } from './CurrencyIcon';
+export { default as CashIcon } from './CashIcon';

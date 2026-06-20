@@ -48,7 +48,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { COLORS, MOCK_ASSETS, CURRENCY_SYMBOLS, EXCHANGE_RATES } from '../constants/theme';
-import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '../components/icons';
+import { SettingsIcon, NotificationIcon, GoldIcon, BitcoinIcon, StockIcon, CurrencyIcon, CashIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '../components/icons';
 import { usePortfolio } from '../context/PortfolioContext';
 import { useSubCategories } from '../context/SubCategoryContext';
 import PortfolioSelector from '../components/PortfolioSelector';
@@ -91,7 +91,7 @@ const UNASSIGNED_LABEL = 'Diğer';
 
 export default function DashboardScreen({ navigation }) {
   // Context'ten verileri çek
-  const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency } = usePortfolio();
+  const { transactions, totalValue, loading, clearAllData, displayCurrency, setDisplayCurrency, portfolios } = usePortfolio();
   const {
     subCategories,
     assetMapping,
@@ -388,6 +388,7 @@ export default function DashboardScreen({ navigation }) {
       'Kripto': 0,
       'Borsa': 0,
       'Döviz': 0,
+      'Nakit': 0,
     };
 
     assetsForPricing.forEach(asset => {
@@ -433,6 +434,11 @@ export default function DashboardScreen({ navigation }) {
       name: 'Döviz',
       value: convertCurrency(categoryValues['Döviz']),
       color: getCategoryColor('Döviz')
+    },
+    {
+      name: 'Nakit',
+      value: convertCurrency(categoryValues['Nakit']),
+      color: getCategoryColor('Nakit') || '#1ABC9C'
     },
   ].filter(item => item.value > 0);
 
@@ -879,6 +885,39 @@ export default function DashboardScreen({ navigation }) {
   };
 
   /**
+   * NAKİT kategorisi için detay hesaplama
+   */
+  const getNakitDetail = () => {
+    const assets = collectCategoryAssets('Nakit');
+
+    return assets.map(([name, data], index) => {
+      // Ortalama alış maliyeti (Nakit için genellikle 1'dir ama işlemleri hesaplayalım)
+      const totalBuyQuantity = data.transactions
+        .filter(tx => tx.type === 'buy')
+        .reduce((sum, tx) => sum + tx.quantity, 0);
+
+      const avgCostInTRY = totalBuyQuantity > 0 ? data.totalCostInTRY / totalBuyQuantity : 1;
+
+      // Nakit her zaman 1 TRY değerindedir
+      const currentPriceInTRY = 1;
+      const currentValueInTRY = data.totalQuantity * currentPriceInTRY;
+
+      return {
+        name: name.includes('(') ? name.split('(')[0].trim() : name,
+        fullName: name,
+        symbol: data.symbol || null,
+        value: convertCurrency(currentValueInTRY),
+        quantity: data.totalQuantity,
+        avgPrice: convertCurrency(avgCostInTRY),
+        currentPrice: convertCurrency(currentPriceInTRY),
+        hasLivePrice: true,
+        color: generateColorForAsset(name, index),
+        quantityLabel: 'Tutar',
+      };
+    });
+  };
+
+  /**
    * Ana kategori detay fonksiyonu - Kategoriye göre doğru fonksiyonu çağırır
    */
   const getCategoryDetail = (categoryName) => {
@@ -898,6 +937,9 @@ export default function DashboardScreen({ navigation }) {
         break;
       case 'Döviz':
         assetArray = getForexDetail();
+        break;
+      case 'Nakit':
+        assetArray = getNakitDetail();
         break;
       default:
         console.warn(`⚠️ Bilinmeyen kategori: ${categoryName}`);
@@ -1039,6 +1081,47 @@ export default function DashboardScreen({ navigation }) {
     }, 150);
   };
 
+  // Tüm portföylerin genel toplamını hesapla
+  const grandTotalValueInTRY = React.useMemo(() => {
+    if (!portfolios || portfolios.length <= 1) return null;
+    let total = 0;
+    portfolios.forEach(p => {
+      const pTrans = p.transactions || [];
+      const pAssetMap = {};
+      pTrans.forEach(tx => {
+        const key = `${tx.mainCategory}_${tx.assetName}`;
+        if (!pAssetMap[key]) pAssetMap[key] = { quantity: 0, totalCost: 0 };
+        const multiplier = tx.type === 'buy' ? 1 : -1;
+        pAssetMap[key].quantity += tx.quantity * multiplier;
+        const txCurrency = tx.currency || 'TRY';
+        const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
+        pAssetMap[key].totalCost += costInTRY * multiplier;
+      });
+      
+      Object.entries(pAssetMap).forEach(([key, asset]) => {
+        if (asset.quantity <= 0) return;
+        const assetName = key.split('_').slice(1).join('_');
+        const priceData = prices[assetName];
+        if (priceData && priceData.price > 0 && !priceData.error) {
+           const priceCurrency = priceData.currency || 'TRY';
+           const currentPriceInTRY = convertToTRY(priceData.price, priceCurrency, exchangeRates);
+           total += asset.quantity * currentPriceInTRY;
+        } else {
+           // Nakit kategorisi ise 1 TRY olarak hesapla
+           const isNakit = key.startsWith('Nakit_');
+           if (isNakit) {
+             total += asset.quantity;
+           } else {
+             total += asset.totalCost;
+           }
+        }
+      });
+    });
+    return total;
+  }, [portfolios, prices, exchangeRates]);
+
+  const grandTotalValue = grandTotalValueInTRY !== null ? convertCurrency(grandTotalValueInTRY) : null;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar />
@@ -1048,7 +1131,7 @@ export default function DashboardScreen({ navigation }) {
         <Text style={styles.headerTitle}>PortföyMate</Text>
 
         {/* Portföy Seçici (Orta) */}
-        <PortfolioSelector />
+        <PortfolioSelector portfolios={portfolios} grandTotalValue={grandTotalValue} />
 
         {/* Para Birimi Seçici (Sağ) */}
         <TouchableOpacity
@@ -1077,6 +1160,7 @@ export default function DashboardScreen({ navigation }) {
         {/* Portfolio Value Header - Modern Tasarım */}
         <PortfolioValueHeader
           totalValue={totalPortfolioValue}
+          grandTotalValue={grandTotalValue}
           currencySymbol={currencySymbol}
           profitLoss={profitLossData.profitLoss}
           profitLossPercentage={profitLossData.profitLossPercentage}
@@ -1259,6 +1343,7 @@ export default function DashboardScreen({ navigation }) {
                 else if (asset.name === 'Kripto') icon = <BitcoinIcon size={32} color={asset.color} />;
                 else if (asset.name === 'Borsa') icon = <StockIcon size={32} color={asset.color} />;
                 else if (asset.name === 'Döviz') icon = <CurrencyIcon size={32} color={asset.color} />;
+                else if (asset.name === 'Nakit') icon = <CashIcon size={32} color={asset.color} />;
 
                 return (
                   <QuickViewCard
