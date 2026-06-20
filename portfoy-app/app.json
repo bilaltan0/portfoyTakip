@@ -2,7 +2,7 @@
   "expo": {
     "name": "PortföyMate",
     "slug": "portfoymate",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "default",
     "icon": "./assets/PortfoyMate_Icon_512.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.bilaltan.portfoyapp",
-      "versionCode": 32,
+      "versionCode": 33,
       "adaptiveIcon": {
   "foregroundImage": "./assets/PortfoyMate_Icon_512.png",
         "backgroundColor": "#ffffff"
@@ -37,17 +37,32 @@
             "kotlinVersion": "2.0.21"
           }
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-7650437807511951~2465256081",
+          "iosAppId": "ca-app-pub-7650437807511951~2465256081",
+          "userTrackingUsageDescription": "Bu reklam kimliği, ilgi alanlarınıza uygun reklamlar göstermek için kullanılır.",
+          "skAdNetworkItems": [
+            "cstr6suwn9.skadnetwork",
+            "4fzdc2evr5.skadnetwork",
+            "2fnua5tdw4.skadnetwork",
+            "ydx93a7ass.skadnetwork"
+          ]
+        }
       ]
     ],
     "extra": {
       "eas": {
         "projectId": "63f32f4e-ecd4-49ac-97d7-aa56f58a62eb"
       },
+      "enableAds": true,
       "enableTestAds": false
     }
   },
   "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
-    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+    "android_app_id": "ca-app-pub-7650437807511951~2465256081",
+    "ios_app_id": "ca-app-pub-7650437807511951~2465256081"
   }
 }

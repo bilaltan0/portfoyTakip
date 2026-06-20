@@ -9,7 +9,9 @@ export const AdProvider = ({ children }) => {
   // Legacy AsyncStorage override is ignored — it was only useful for
   // development/testing and should not affect production builds anymore.
   const expoVal = Constants.expoConfig?.extra?.enableAds;
-  const buildDefault = typeof expoVal === 'boolean' ? expoVal : false;
+  console.log('AdContext init, expoVal=', expoVal, 'Constants.expoConfig.extra=', Constants.expoConfig?.extra);
+  // Force ads to be enabled in __DEV__ so we can test without a native rebuild
+  const buildDefault = __DEV__ ? true : (typeof expoVal === 'boolean' ? expoVal : false);
   const [enabled, setEnabled] = useState(buildDefault);
   const [initialized, setInitialized] = useState(false);
 
