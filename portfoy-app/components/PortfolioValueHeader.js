@@ -54,12 +54,17 @@ const PortfolioValueHeader = ({
               )}
             </TouchableOpacity>
           </View>
-          <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
-          {grandTotalValue !== null && grandTotalValue !== undefined && (
-            <Text style={styles.grandTotalLabel}>
-              Tüm Portföyler Toplamı: {isBalanceHidden ? '₺ *****' : `${currencySymbol}${Math.round(grandTotalValue).toLocaleString('tr-TR')}`}
-            </Text>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            {grandTotalValue !== null && grandTotalValue !== undefined ? (
+              <View style={[styles.grandTotalBadge, { marginLeft: 0 }]}>
+                <Text style={styles.grandTotalBadgeText}>
+                  Tüm Portföyler: {isBalanceHidden ? '***' : `${currencySymbol}${Math.round(grandTotalValue).toLocaleString('tr-TR')}`}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
+            )}
+          </View>
         </View>
 
         {/* Sağ: Kar/Zarar Badge */}
@@ -135,11 +140,23 @@ const styles = StyleSheet.create({
     color: COLORS.mediumGray,
     fontWeight: '500',
   },
-  grandTotalLabel: {
-    fontSize: 12,
+  dotSeparator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB', // light gray
+    marginHorizontal: 8,
+  },
+  grandTotalBadge: {
+    backgroundColor: '#F0F4FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  grandTotalBadgeText: {
+    fontSize: 11,
     color: COLORS.primary,
     fontWeight: '600',
-    marginTop: 4,
   },
   profitSection: {
     marginLeft: 12,
