@@ -11,7 +11,7 @@ export const AdProvider = ({ children }) => {
   const expoVal = Constants.expoConfig?.extra?.enableAds;
   console.log('AdContext init, expoVal=', expoVal, 'Constants.expoConfig.extra=', Constants.expoConfig?.extra);
   // Force ads to be enabled in __DEV__ so we can test without a native rebuild
-  const buildDefault = __DEV__ ? true : (typeof expoVal === 'boolean' ? expoVal : false);
+  const buildDefault = __DEV__ ? true : (expoVal !== false);
   const [enabled, setEnabled] = useState(buildDefault);
   const [initialized, setInitialized] = useState(false);
 
