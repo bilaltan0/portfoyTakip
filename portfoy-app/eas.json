@@ -19,7 +19,10 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "ENABLE_ADS": "true"
+      }
     }
   },
   "submit": {

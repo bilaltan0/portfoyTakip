@@ -69,6 +69,7 @@ import { calculatePeriodProfitLoss } from '../utils/periodCalculations';
 // Hooks
 import { useAssetPrices } from '../hooks/useAssetPrices';
 import { useHistoricalPrices } from '../hooks/useHistoricalPrices';
+import useInterstitialAd from '../hooks/useInterstitialAd';
 
 // Services
 import { getExchangeRates, convertToTRY, convertFromTRY } from '../services/exchangeRateService';
@@ -125,6 +126,9 @@ export default function DashboardScreen({ navigation }) {
   // Flag to indicate a programmatic scroll in progress (prevent onScroll saving)
   const programmaticScrollRef = useRef(false);
   const scrollSaveTimeoutRef = useRef(null);
+
+  // Interstitial reklam (kategori detay açılışlarında)
+  const { showInterstitialIfReady, trackOpen } = useInterstitialAd();
 
   // Force re-render when screen regains focus (fix: quick view not loading after swipe/back)
   const [focusTick, setFocusTick] = useState(0);
@@ -1265,7 +1269,11 @@ export default function DashboardScreen({ navigation }) {
                     change={asset.exactPercentage ? asset.exactPercentage.toFixed(2) : asset.percentage}
                     color={asset.color}
                     currencySymbol={currencySymbol}
-                    onPress={() => setSelectedCategory(asset.name)}
+                    onPress={() => {
+                      trackOpen();
+                      showInterstitialIfReady();
+                      setSelectedCategory(asset.name);
+                    }}
                     isBalanceHidden={isBalanceHidden}
                   />
                 );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, NativeModules, Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { useAd } from '../context/AdContext';
+import { getAdUnitId } from '../constants/adUnits';
 
 /**
  * AdBanner - uses react-native-google-mobile-ads when available,
@@ -34,8 +34,7 @@ export default function AdBanner({ style }) {
       // eslint-disable-next-line global-require
       const { BannerAd, BannerAdSize, TestIds } = require('react-native-google-mobile-ads');
 
-      const useTestAds = __DEV__ || !!Constants.expoConfig?.extra?.enableTestAds;
-      const unitId = useTestAds ? TestIds.BANNER : 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB';
+      const unitId = getAdUnitId('BANNER', TestIds);
 
       // Use an adaptive anchored banner so the height adjusts to the
       // device width and prevents layout shifts when the ad loads.
