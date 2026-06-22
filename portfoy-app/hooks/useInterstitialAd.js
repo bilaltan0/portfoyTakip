@@ -31,18 +31,18 @@ import { NativeModules, Platform } from 'react-native';
 import { useAd } from '../context/AdContext';
 import { getAdUnitId, USE_TEST_ADS } from '../constants/adUnits';
 
-// ─── Frekans ayarları (kullanıcı deneyimi odaklı) ────────────────────────────
+// ─── Frekans ayarları (kullanıcı deneyimi odaklı — başlangıçta minimal) ──────
 /** İki interstitial arasındaki minimum süre (ms) */
-const MIN_INTERVAL_MS = 120_000; // 2 dakika
+const MIN_INTERVAL_MS = 180_000; // 3 dakika
 
 /** İki gösterim arasındaki minimum ekran açılış sayısı */
-const MIN_OPENS_BETWEEN = 4;
+const MIN_OPENS_BETWEEN = 5;
 
 /** Uygulama açıldıktan sonraki bekleme süresi — ilk X ms içinde reklam gösterme */
 const COLD_START_GRACE_MS = 120_000; // 2 dakika
 
 /** Oturum başına maksimum interstitial sayısı */
-const MAX_PER_SESSION = 4;
+const MAX_PER_SESSION = 3;
 
 // ─── Native modül kontrolü ────────────────────────────────────────────────────
 const isNativePresent = () =>

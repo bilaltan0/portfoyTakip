@@ -580,12 +580,6 @@ export default function TransactionScreen({ route, navigation }) {
 
       // Toast bildirim göster - Artık kesin kaydedildi!
       showToast('İşlem gerçekleştirildi', transactionType === 'buy' ? 'success' : 'error');
-
-      // İşlem başarıyla tamamlandı — doğal tamamlanma anında interstitial göster
-      // (frekans kontrolü hook içinde yapılıyor, her işlemde gösterilmez)
-      setTimeout(() => {
-        showInterstitialIfReady();
-      }, 800); // Toast gösterildikten kısa süre sonra
     } else {
       // Hata durumu
       Alert.alert('Hata', 'İşlem kaydedilemedi. Lütfen tekrar deneyin.');
