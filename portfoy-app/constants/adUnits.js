@@ -60,6 +60,7 @@ export const AD_UNITS = RAW_UNITS;
  * Test modunda Google'ın resmi test ID'lerini, production'da gerçek ID'yi kullanır.
  * @param {'BANNER'|'INTERSTITIAL'|'REWARDED'} type
  * @param {object} TestIds — react-native-google-mobile-ads'ten import edilmeli
+ * @returns {string|null} Ad unit ID or null if not configured
  */
 export function getAdUnitId(type, TestIds) {
   if (USE_TEST_ADS && TestIds) {
@@ -68,7 +69,18 @@ export function getAdUnitId(type, TestIds) {
       INTERSTITIAL: TestIds.INTERSTITIAL,
       REWARDED: TestIds.REWARDED,
     };
-    return testMap[type] || AD_UNITS[type];
+    const id = testMap[type] || AD_UNITS[type];
+    console.log(`📣 getAdUnitId(${type}) → TEST: ${id}`);
+    return id;
   }
-  return AD_UNITS[type];
+
+  const id = AD_UNITS[type];
+
+  if (!id) {
+    console.warn(`⚠️ getAdUnitId(${type}) → PRODUCTION: unit ID is EMPTY! Create this ad unit in AdMob console.`);
+    return null;
+  }
+
+  console.log(`📣 getAdUnitId(${type}) → PRODUCTION: ${id}`);
+  return id;
 }
