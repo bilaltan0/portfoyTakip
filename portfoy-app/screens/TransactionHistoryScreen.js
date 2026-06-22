@@ -7,15 +7,28 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 import TransactionItem from '../components/TransactionItem';
 import AdBanner from '../components/AdBanner';
+import useInterstitialAd from '../hooks/useInterstitialAd';
 
 export default function TransactionHistoryScreen({ navigation }) {
   const { activePortfolio, deleteTransaction, updateTransaction } = usePortfolio();
   const [isDeleting, setIsDeleting] = useState(false);
+  const { showInterstitialIfReady, trackOpen } = useInterstitialAd();
+
+  // Ekran açıldığında interstitial frekans takibi + gösterim
+  useFocusEffect(
+    React.useCallback(() => {
+      trackOpen();
+      // İşlem geçmişine giriş doğal bir ekran geçişi — interstitial göster
+      showInterstitialIfReady();
+      return () => {};
+    }, [trackOpen, showInterstitialIfReady])
+  );
 
   // İşlem silme
   const handleDelete = (transaction) => {

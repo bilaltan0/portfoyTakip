@@ -136,8 +136,10 @@ export default function DashboardScreen({ navigation }) {
     React.useCallback(() => {
       // increment a tick so components that use it as a key will remount
       setFocusTick(t => t + 1);
+      // Ekran açılışını say (interstitial frekans takibi)
+      trackOpen();
       return () => { };
-    }, [])
+    }, [trackOpen])
   );
 
   // Debug: Verileri temizle

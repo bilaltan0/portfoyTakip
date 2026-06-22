@@ -35,6 +35,7 @@ import { BuyIcon, SellIcon } from '../components/icons';
 import AdBanner from '../components/AdBanner';
 import { searchAllAssets, getPopularAssets } from '../services/assetSearchService';
 import { fetchAssetPrice } from '../services/priceService';
+import useInterstitialAd from '../hooks/useInterstitialAd';
 
 // Ekran boyutunu al - Responsive tasarım için
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -114,6 +115,9 @@ export default function TransactionScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const keyboardAnim = useRef(new Animated.Value(12 + (insets.bottom || 0))).current;
   const INPUT_ACC_VIEW_ID = 'transactionAccessory';
+
+  // Interstitial reklam (işlem tamamlandıktan sonra)
+  const { showInterstitialIfReady, trackOpen } = useInterstitialAd();
 
   // Preselected asset kontrolü için ref
   const isPreselectingRef = React.useRef(false);
@@ -262,6 +266,14 @@ export default function TransactionScreen({ route, navigation }) {
     const popular = getPopularAssets(category);
     setPopularAssets(popular);
   };
+
+  // Ekran odağa geldiğinde açılış say (interstitial frekans takibi)
+  useFocusEffect(
+    React.useCallback(() => {
+      trackOpen();
+      return () => {};
+    }, [trackOpen])
+  );
 
   // Screen'den ayrılınca formu resetle
   useFocusEffect(
@@ -568,6 +580,12 @@ export default function TransactionScreen({ route, navigation }) {
 
       // Toast bildirim göster - Artık kesin kaydedildi!
       showToast('İşlem gerçekleştirildi', transactionType === 'buy' ? 'success' : 'error');
+
+      // İşlem başarıyla tamamlandı — doğal tamamlanma anında interstitial göster
+      // (frekans kontrolü hook içinde yapılıyor, her işlemde gösterilmez)
+      setTimeout(() => {
+        showInterstitialIfReady();
+      }, 800); // Toast gösterildikten kısa süre sonra
     } else {
       // Hata durumu
       Alert.alert('Hata', 'İşlem kaydedilemedi. Lütfen tekrar deneyin.');
