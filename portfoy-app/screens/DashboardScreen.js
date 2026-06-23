@@ -232,73 +232,78 @@ export default function DashboardScreen({ navigation }) {
     profitLossPercentage: 0
   });
 
-  // Varlıkları hazırla (useAssetPrices için) - TÜM portföylerdeki işlemleri tara
-  useEffect(() => {
-    const assetMap = {};
+  // Varlıkları hazırla
+  const [allAssetsForPricing, setAllAssetsForPricing] = useState([]); // Tüm portföylerdeki eşsiz varlıklar (sadece fiyat çekmek için)
 
+  useEffect(() => {
+    // 1. SADECE AKTİF PORTFÖY İÇİN (Grafikler, Hızlı Bakış, Aktif Kar/Zarar vs.)
+    const assetMap = {};
+    transactions.forEach(tx => {
+      const key = `${tx.mainCategory}_${tx.assetName}`;
+      if (!assetMap[key]) {
+        assetMap[key] = {
+          name: tx.assetName,
+          symbol: tx.symbol || null,
+          category: tx.mainCategory,
+          mainCategory: tx.mainCategory,
+          quantity: 0,
+          totalCost: 0,
+          apiId: tx.apiId || null,
+          provider: tx.provider || null,
+          apiCurrency: tx.apiCurrency || null,
+        };
+      }
+      if (tx.symbol && !assetMap[key].symbol) assetMap[key].symbol = tx.symbol;
+      if (tx.apiId && !assetMap[key].apiId) assetMap[key].apiId = tx.apiId;
+      if (tx.provider && !assetMap[key].provider) assetMap[key].provider = tx.provider;
+      if (tx.apiCurrency && !assetMap[key].apiCurrency) assetMap[key].apiCurrency = tx.apiCurrency;
+
+      const multiplier = tx.type === 'buy' ? 1 : -1;
+      assetMap[key].quantity += tx.quantity * multiplier;
+      const txCurrency = tx.currency || 'TRY';
+      const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
+      assetMap[key].totalCost += costInTRY * multiplier;
+    });
+
+    const activeAssets = Object.values(assetMap).filter(asset => asset.quantity > 0);
+    setAssetsForPricing(activeAssets);
+
+    // 2. TÜM PORTFÖYLER İÇİN (Sadece fiyatları çekebilmek adına)
+    const allAssetMap = {};
     portfolios.forEach(p => {
       const pTrans = p.transactions || [];
       pTrans.forEach(tx => {
         const key = `${tx.mainCategory}_${tx.assetName}`;
-        if (!assetMap[key]) {
-          assetMap[key] = {
+        if (!allAssetMap[key]) {
+          allAssetMap[key] = {
             name: tx.assetName,
             symbol: tx.symbol || null,
             category: tx.mainCategory,
-            mainCategory: tx.mainCategory, // Hem category hem mainCategory (uyumluluk)
-            quantity: 0,
-            totalCost: 0,
-            // ✅ FİYAT ÇEKME İÇİN GEREKLİ BİLGİLER
             apiId: tx.apiId || null,
             provider: tx.provider || null,
             apiCurrency: tx.apiCurrency || null,
+            quantity: 0
           };
         }
-
-        // En güncel bilgileri kullan (transaction'da varsa)
-        if (tx.symbol && !assetMap[key].symbol) {
-          assetMap[key].symbol = tx.symbol;
-        }
-        if (tx.apiId && !assetMap[key].apiId) {
-          assetMap[key].apiId = tx.apiId;
-        }
-        if (tx.provider && !assetMap[key].provider) {
-          assetMap[key].provider = tx.provider;
-        }
-        if (tx.apiCurrency && !assetMap[key].apiCurrency) {
-          assetMap[key].apiCurrency = tx.apiCurrency;
-        }
-
+        if (tx.symbol && !allAssetMap[key].symbol) allAssetMap[key].symbol = tx.symbol;
+        if (tx.apiId && !allAssetMap[key].apiId) allAssetMap[key].apiId = tx.apiId;
+        if (tx.provider && !allAssetMap[key].provider) allAssetMap[key].provider = tx.provider;
+        if (tx.apiCurrency && !allAssetMap[key].apiCurrency) allAssetMap[key].apiCurrency = tx.apiCurrency;
+        
         const multiplier = tx.type === 'buy' ? 1 : -1;
-        assetMap[key].quantity += tx.quantity * multiplier;
-
-        // Toplam maliyet hesapla (TRY cinsine çevirerek - dinamik kurlarla)
-        const txCurrency = tx.currency || 'TRY';
-        const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
-        assetMap[key].totalCost += costInTRY * multiplier;
+        allAssetMap[key].quantity += tx.quantity * multiplier;
       });
     });
 
-    // Sadece pozitif miktar olanları al (apiMapping kontrolü yok!)
-    const assets = Object.values(assetMap)
-      .filter(asset => asset.quantity > 0);
+    const allAssets = Object.values(allAssetMap).filter(asset => asset.quantity > 0);
+    setAllAssetsForPricing(allAssets);
 
-    console.log('🔍 AssetsForPricing:', assets.map(a => ({
-      name: a.name,
-      category: a.category,
-      quantity: a.quantity,
-      totalCost: a.totalCost.toFixed(2),
-      apiId: a.apiId,
-      provider: a.provider
-    })));
+  }, [transactions, portfolios, exchangeRates]);
 
-    setAssetsForPricing(assets);
-  }, [transactions, exchangeRates]); // exchangeRates değişince yeniden hesapla
+  // Anlık fiyatları TÜM PORTFÖY VARLIKLARI için çek
+  const { prices, loading: pricesLoading, error: pricesError, refresh: refreshPricesOnly } = useAssetPrices(allAssetsForPricing);
 
-  // Anlık fiyatları çek
-  const { prices, loading: pricesLoading, error: pricesError, refresh: refreshPricesOnly } = useAssetPrices(assetsForPricing);
-
-  // Tarihsel fiyatları çek (dönem bazlı kar/zarar için)
+  // Tarihsel fiyatları çek (dönem bazlı kar/zarar için - sadece aktif portföy varlıkları yeterli)
   const { historicalPrices, loading: historicalLoading } = useHistoricalPrices(assetsForPricing, selectedPeriod);
 
   // Refresh fonksiyonu: Cache temizle, döviz kurlarını ve fiyatları yenile
