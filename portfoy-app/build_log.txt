@@ -1,0 +1,35 @@
+★ eas-cli@20.3.0 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+(node:34040) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "production" environment on EAS.
+Environment variables loaded from the "production" build profile "env" configuration: ENABLE_ADS.
+
+Specified value for "android.package" in app.config.js or app.json is ignored because an android directory was detected in the project.
+EAS Build will use the value found in the native code.
+- Incrementing versionCode from 15 to 16.
+✔ Incremented versionCode from 15 to 16.
+
+
+android.versionCode field in app config is ignored when version source is set to remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials 5xe1aWumIj (default)
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+- Uploading to EAS Build (0 / 1.7 MB)
+✔ Uploaded to EAS 1s
+- Computing project fingerprint
+✔ Computed project fingerprint
+
+See logs: https://expo.dev/accounts/bilaltan/projects/portfoymate/builds/109b7a62-e84c-4194-93f6-bf3e5c8686f0
+
+Waiting for build to complete. You can press Ctrl+C to exit.
+- Waiting for build to complete.
+✖ Build failed
+
+🤖 Android build failed:
+Unknown error. See logs of the Fix gradlew build phase for more information.

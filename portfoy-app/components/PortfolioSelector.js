@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SIZES, FONTS } from '../constants/theme';
 import { usePortfolio } from '../context/PortfolioContext';
 
-const PortfolioSelector = () => {
+const PortfolioSelector = ({ grandTotalValue }) => {
   const {
     portfolios,
     activePortfolioId,
@@ -324,6 +324,13 @@ const PortfolioSelector = () => {
                   <Text style={styles.addButtonText}>Yeni Portföy Oluştur</Text>
                 </TouchableOpacity>
               )}
+              {/* Genel Toplam */}
+              {grandTotalValue && portfolios.length > 1 && (
+                <View style={styles.grandTotalContainer}>
+                  <Text style={styles.grandTotalLabel}>Tüm Portföyler Toplamı</Text>
+                  <Text style={styles.grandTotalValue}>{grandTotalValue}</Text>
+                </View>
+              )}
             
             <RewardedModal
               visible={rewardedVisible}
@@ -562,6 +569,27 @@ const styles = StyleSheet.create({
     ...FONTS.h4,
     color: COLORS.primary,
     marginLeft: 8,
+  },
+  
+  // Grand Total
+  grandTotalContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: COLORS.lightPrimary,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  grandTotalLabel: {
+    ...FONTS.body3,
+    color: COLORS.darkBlue,
+    marginBottom: 4,
+  },
+  grandTotalValue: {
+    ...FONTS.h3,
+    color: COLORS.primary,
+    fontWeight: '800',
   },
 });
 
