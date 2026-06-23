@@ -232,48 +232,51 @@ export default function DashboardScreen({ navigation }) {
     profitLossPercentage: 0
   });
 
-  // Varlıkları hazırla (useAssetPrices için)
+  // Varlıkları hazırla (useAssetPrices için) - TÜM portföylerdeki işlemleri tara
   useEffect(() => {
     const assetMap = {};
 
-    transactions.forEach(tx => {
-      const key = `${tx.mainCategory}_${tx.assetName}`;
-      if (!assetMap[key]) {
-        assetMap[key] = {
-          name: tx.assetName,
-          symbol: tx.symbol || null,
-          category: tx.mainCategory,
-          mainCategory: tx.mainCategory, // Hem category hem mainCategory (uyumluluk)
-          quantity: 0,
-          totalCost: 0,
-          // ✅ FİYAT ÇEKME İÇİN GEREKLİ BİLGİLER
-          apiId: tx.apiId || null,
-          provider: tx.provider || null,
-          apiCurrency: tx.apiCurrency || null,
-        };
-      }
+    portfolios.forEach(p => {
+      const pTrans = p.transactions || [];
+      pTrans.forEach(tx => {
+        const key = `${tx.mainCategory}_${tx.assetName}`;
+        if (!assetMap[key]) {
+          assetMap[key] = {
+            name: tx.assetName,
+            symbol: tx.symbol || null,
+            category: tx.mainCategory,
+            mainCategory: tx.mainCategory, // Hem category hem mainCategory (uyumluluk)
+            quantity: 0,
+            totalCost: 0,
+            // ✅ FİYAT ÇEKME İÇİN GEREKLİ BİLGİLER
+            apiId: tx.apiId || null,
+            provider: tx.provider || null,
+            apiCurrency: tx.apiCurrency || null,
+          };
+        }
 
-      // En güncel bilgileri kullan (transaction'da varsa)
-      if (tx.symbol && !assetMap[key].symbol) {
-        assetMap[key].symbol = tx.symbol;
-      }
-      if (tx.apiId && !assetMap[key].apiId) {
-        assetMap[key].apiId = tx.apiId;
-      }
-      if (tx.provider && !assetMap[key].provider) {
-        assetMap[key].provider = tx.provider;
-      }
-      if (tx.apiCurrency && !assetMap[key].apiCurrency) {
-        assetMap[key].apiCurrency = tx.apiCurrency;
-      }
+        // En güncel bilgileri kullan (transaction'da varsa)
+        if (tx.symbol && !assetMap[key].symbol) {
+          assetMap[key].symbol = tx.symbol;
+        }
+        if (tx.apiId && !assetMap[key].apiId) {
+          assetMap[key].apiId = tx.apiId;
+        }
+        if (tx.provider && !assetMap[key].provider) {
+          assetMap[key].provider = tx.provider;
+        }
+        if (tx.apiCurrency && !assetMap[key].apiCurrency) {
+          assetMap[key].apiCurrency = tx.apiCurrency;
+        }
 
-      const multiplier = tx.type === 'buy' ? 1 : -1;
-      assetMap[key].quantity += tx.quantity * multiplier;
+        const multiplier = tx.type === 'buy' ? 1 : -1;
+        assetMap[key].quantity += tx.quantity * multiplier;
 
-      // Toplam maliyet hesapla (TRY cinsine çevirerek - dinamik kurlarla)
-      const txCurrency = tx.currency || 'TRY';
-      const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
-      assetMap[key].totalCost += costInTRY * multiplier;
+        // Toplam maliyet hesapla (TRY cinsine çevirerek - dinamik kurlarla)
+        const txCurrency = tx.currency || 'TRY';
+        const costInTRY = convertToTRY(tx.quantity * tx.unitPrice, txCurrency, exchangeRates);
+        assetMap[key].totalCost += costInTRY * multiplier;
+      });
     });
 
     // Sadece pozitif miktar olanları al (apiMapping kontrolü yok!)
@@ -1122,8 +1125,10 @@ export default function DashboardScreen({ navigation }) {
     return total;
   }, [portfolios, prices, exchangeRates]);
 
-  const grandTotalValue = grandTotalValueInTRY !== null ? convertCurrency(grandTotalValueInTRY) : null;
-
+  // grandTotalValue'yu formatla: 123.45 yerine 123 ve para birimi simgesi (₺123)
+  const grandTotalValue = grandTotalValueInTRY !== null 
+    ? `${currencySymbol}${Math.round(convertCurrency(grandTotalValueInTRY)).toLocaleString('tr-TR')}` 
+    : null;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar />
