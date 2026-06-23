@@ -55,15 +55,7 @@ const PortfolioValueHeader = ({
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            {grandTotalValue !== null && grandTotalValue !== undefined ? (
-              <View style={[styles.grandTotalBadge, { marginLeft: 0 }]}>
-                <Text style={styles.grandTotalBadgeText}>
-                  Tüm Portföyler: {isBalanceHidden ? '***' : `${currencySymbol}${Math.round(grandTotalValue).toLocaleString('tr-TR')}`}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
-            )}
+            <Text style={styles.valueLabel}>Toplam Portföy Değeri</Text>
           </View>
         </View>
 
