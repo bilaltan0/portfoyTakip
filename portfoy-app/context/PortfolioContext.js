@@ -107,10 +107,28 @@ export function PortfolioProvider({ children }) {
         setActivePortfolioId(savedActiveId);
       }
 
-      // Categories yükle
+      // Categories yükle (Yeni sürümde eklenen kategorileri eskilere merge et)
       const savedCategories = await AsyncStorage.getItem(STORAGE_KEYS.CATEGORIES);
       if (savedCategories) {
-        setCategories(JSON.parse(savedCategories));
+        const parsed = JSON.parse(savedCategories);
+        const merged = { ...parsed };
+        let hasChanges = false;
+        
+        // Eğer DEFAULT_CATEGORIES içinde olup da kullanıcıda olmayan bir kategori varsa ekle
+        Object.keys(DEFAULT_CATEGORIES).forEach(key => {
+          if (!merged[key]) {
+            merged[key] = DEFAULT_CATEGORIES[key];
+            hasChanges = true;
+          }
+        });
+        
+        setCategories(merged);
+        
+        if (hasChanges) {
+          await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(merged));
+        }
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
       }
 
       // Display Currency yükle
